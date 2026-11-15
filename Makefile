@@ -70,9 +70,8 @@ worker: ## start background worker
 # Code Quality
 # ---------------------------------------------------------------------------
 
-lint: ## run Ruff lint and format check
-	cd $(BACKEND_DIR) && uv run ruff check .
-	cd $(BACKEND_DIR) && uv run ruff format --check .
+lint: ## run all pre-commit hooks except mypy and branch guard (fixes files)
+	SKIP=no-commit-to-branch,mypy uv run --project $(BACKEND_DIR) pre-commit run --all-files
 
 format: ## automatically fix Ruff lint and formatting issues
 	cd $(BACKEND_DIR) && uv run ruff check --fix .
