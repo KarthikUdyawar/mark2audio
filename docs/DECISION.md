@@ -1,0 +1,63 @@
+# Mark2Audio — Decisions
+
+Append-only log. Never edit an accepted entry; add a new one that supersedes it.
+Format: `D-NNN`, date, status, context, decision, consequence.
+Related: [ARCHITECTURE.md](ARCHITECTURE.md) · [ROADMAP.md](ROADMAP.md) ·
+[CLAUDE.md](../CLAUDE.md#21-project-mark2audio).
+
+D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5b`).
+
+## D-001 — Modular monolith, SQLite, no external services
+- Date: 2026-11-15 · Status: accepted
+- Context: single-user, local-first, offline tool.
+- Decision: two processes (api, worker) from one image; SQLite for metadata and job state; no
+  Redis, RabbitMQ, PostgreSQL, MinIO or cloud APIs.
+- Consequence: no outbound network at conversion time. Revisit only with measured need.
+
+## D-002 — Local TTS behind an interface (Kokoro ONNX)
+- Date: 2026-11-15 · Status: accepted, unverified with real model
+- Context: need open, local speech synthesis.
+- Decision: `TtsEngine` protocol in `tts.py`; Kokoro ONNX adapter in `tts_kokoro.py`; `FakeTts`
+  (sine tones) for tests and demos.
+- Consequence: adapter assumptions and model checksum/license still to verify (see ROADMAP).
+
+## D-003 — Vanilla-JS UI served by the API
+- Date: 2026-11-15 · Status: accepted (deviates from the original React/Vite/Tailwind plan)
+- Context: smallest thing that completes the workflow.
+- Decision: single `static/index.html`, no build step, no frontend container.
+- Consequence: UI rules in [DESIGN.md](DESIGN.md#rules) that assume TypeScript apply only after a
+  rewrite. A React rewrite needs a new decision.
+
+## D-004 — Stdlib `sqlite3`, no ORM or migration tool
+- Date: 2026-11-15 · Status: accepted (deviates from SQLAlchemy 2.0 + Alembic plan)
+- Decision: hand-written SQL in `store.py`; schema created with `CREATE TABLE IF NOT EXISTS`;
+  short `BEGIN IMMEDIATE` transactions on fresh connections.
+- Consequence: any schema change needs a migration decision before it ships.
+
+## D-005 — Derived book status, no chapter table
+- Date: 2026-11-15 · Status: accepted (deviates from the original data model)
+- Decision: book status comes from the latest job; chapters are not persisted.
+- Consequence: per-chapter audio or durations need a schema change (new decision).
+
+## D-006 — Document set and sprint workflow
+- Date: 2026-11-15 · Status: accepted
+- Decision: `ROADMAP.md` (plan), `ARCHITECTURE.md` (backend as-built + rules), `DESIGN.md` (UI),
+  `DECISION.md` (this log), `docs/sprints/Sn/{PRD,TODO}.md` per sprint. Docs describe what exists;
+  each fact lives in one place and is linked elsewhere.
+- Consequence: workflow detail lives in CLAUDE.md section 21.
+
+## D-007 — Branching and releases
+- Date: 2026-11-15 · Status: accepted
+- Decision: `main`, `develop`, one `feature/*` branch per sprint, one commit per task, release
+  merged to `main` and tagged `v0.S.0`. Free GitHub plan: no branch protection, rule enforced by
+  convention.
+
+## D-008 — Private repository
+- Date: 2026-11-15 · Status: accepted
+- Decision: repo is private and not open-sourced. No LICENSE, CONTRIBUTING or SECURITY files.
+- Consequence: revisit before any publication; model and voice licenses still unchecked.
+
+## D-009 — Working skills
+- Date: 2026-11-15 · Status: accepted
+- Decision: `tdd`, `ponytail`, `clean-code`, `handoff`; `caveman` (ultra) for chat replies only.
+  `sprint` and `code-review` skills may be built with `skill-creator`.
