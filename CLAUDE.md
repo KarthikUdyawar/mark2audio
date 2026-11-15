@@ -655,7 +655,7 @@ Each fact lives in exactly one document. Others link to it, never copy it.
 | `docs/sprints/Sn/TODO.md`                    | Tasks for sprint `Sn`                        |
 
 - Docs describe what exists. Target state belongs only in ROADMAP and sprint PRDs.
-- Link with anchors: `[text](ARCHITECTURE.md#section)`.
+- Link with anchors (`path/doc.md#section`), paths relative to the linking file.
 - A changed decision gets a new `D-NNN` that supersedes the old one.
 
 ### Sprint workflow
