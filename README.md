@@ -25,6 +25,9 @@ Layout: [ARCHITECTURE.md](docs/ARCHITECTURE.md#storage). Back up by copying `dat
 `make test lint typecheck` (pytest with 80% coverage gate, ruff, strict mypy, bandit).
 A real-model smoke test runs automatically when model files exist.
 
+Local CI: `make ci` (needs [`act`](https://github.com/nektos/act)). Opt-in scans, off by default:
+`make trivy`, `make sonar` ([ARCHITECTURE.md](docs/ARCHITECTURE.md#optional-tooling-off-by-default)).
+
 ## Behaviour notes
 
 - Code blocks skipped by default; links read as link text; images ignored; chapters split on `#`.

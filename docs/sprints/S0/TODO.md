@@ -15,5 +15,11 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T11 `.pre-commit-config.yaml` (`1ff03ce`, `c21b848`)
 - [x] T12 `.github/workflows/ci.yml` (`fcd256e`)
 - [x] T13 `.env.example` and Makefile checked; compose paths pinned, D-010, D-011 (`4089775`)
-- [ ] T14 Review sprint diff (CLAUDE.md section 18), fix findings
-- [ ] T15 Merge to `develop`, `release/v0.0.0` → `main`, tag `v0.0.0`, back-merge, handoff
+- [x] T14 Dev tools in `[dependency-groups]`, `httpx2` replaces `httpx`
+- [x] T15 Pre-commit v2: hygiene, gitleaks, codespell, prettier, commit-msg, pytest on push
+- [x] T16 Format pass from the new hooks
+- [ ] T17 Ruff rule set (D, PL, S, N, …), fix findings, drop bandit, tool tables in pyproject
+- [x] T18 CI hardening, `make ci` with `act`
+- [x] T19 Opt-in `make trivy` and `make sonar`
+- [ ] T20 Review sprint diff (CLAUDE.md section 18), fix findings
+- [ ] T21 Merge to `develop`, `release/v0.0.0` → `main`, tag `v0.0.0`, back-merge, handoff

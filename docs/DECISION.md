@@ -86,3 +86,25 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
 - Context: `.env` copied from `.env.example` holds native paths and overrides the image `ENV`.
 - Decision: `environment` in `docker-compose.yml` sets `M2A_DATA_DIR=/data`,
   `M2A_MODEL_DIR=/models`.
+
+## D-012 — Pre-commit config is the gate source; `act` for local CI
+
+- Date: 2026-11-15 · Status: accepted · Supersedes the wiring in D-010 (pins unchanged)
+- Decision: `.pre-commit-config.yaml` defines the lint checks (hygiene, gitleaks, codespell,
+  pyproject-fmt, ruff, uv-lock, prettier, mypy). `make lint` runs all hooks except mypy and
+  `no-commit-to-branch`, fixes files, and still runs bandit until D-014. `make typecheck` and
+  `make test` are unchanged. CI and `make ci` (`act`) call the same make targets. Hooks: commit
+  (checks), commit-msg (`feat|fix|docs|test|chore|ci|refactor|build|style|perf|revert: …` or
+  `Merge …`), push (pytest). Commits to `main` and `develop` are blocked.
+- Consequence: change checks in the hook config, not in CI. Merge commits need a conforming
+  message. The commit that introduced the config used `--no-verify` (chicken-and-egg).
+
+## D-013 — Trivy and SonarQube are opt-in
+
+- Date: 2026-11-15 · Status: accepted
+- Decision: they stay in their own repos (`trivy-docker-scanner`, `local-sonarqube`). This repo
+  only has `make trivy` and `make sonar`: no hook, no CI job. Config lives in gitignored
+  `.env.tools`, never `.env` (compose forwards `.env` into containers). Compose pins
+  `image: mark2audio:local` so scanners get one stable name.
+- Consequence: scans run only when asked. Sonar settings: `backend/sonar-project.properties`;
+  the token exists only in `.env.tools`.

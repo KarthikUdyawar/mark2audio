@@ -14,11 +14,14 @@ quality gates automated. No product behavior changes.
 - S0-R2 Documents: ROADMAP, ARCHITECTURE, DESIGN, DECISION, CLAUDE.md, README, sprint docs; no
   duplicated facts, links between them.
 - S0-R3 Reproducible dependencies: committed `backend/uv.lock`, Python 3.12 pinned.
-- S0-R4 Local gates: pre-commit (`make hooks`) runs hygiene hooks, lint, typecheck; tests on push.
+- S0-R4 Local gates: pre-commit (`make hooks`) runs hygiene, secrets, spelling, formatting, ruff,
+  mypy, commit-message format; tests on push.
 - S0-R5 CI: GitHub Actions runs `make lint typecheck test` (80% coverage gate).
 - S0-R6 Config hygiene: `.env.example` matches [ARCHITECTURE.md](../../ARCHITECTURE.md#configuration);
   compose pins container paths.
 - S0-R7 Release: merge to `develop`, `release/v0.0.0` to `main`, tag `v0.0.0`.
+- S0-R8 Tooling, off by default: local CI with `act`, Trivy, SonarQube
+  ([D-013](../../DECISION.md)). Ruff rule set replaces bandit.
 
 ## Out of scope
 
@@ -29,7 +32,7 @@ Verifying Kokoro/Docker/offline, model checksum and license, new features, UI re
 
 - Fresh clone: `make install hooks && make test lint typecheck` passes.
 - `pre-commit run --all-files` passes.
-- CI is green on the sprint branch.
+- CI is green on the sprint branch; `make ci` (act) passes locally.
 - Every doc link resolves; no fact stated in two docs.
 - `git tag` shows `v0.0.0` on `main`.
 

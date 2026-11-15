@@ -75,7 +75,6 @@ Input for S1 planning, in rough priority order.
 - Malformed Markdown, very long documents, disk-full, FFmpeg failure, restart during conversion.
 - Troubleshooting guide and known limitations.
 - Worker health check (technical rule: Docker and operations, item 3; none exists yet).
-- pytest warning: Starlette deprecates its `httpx`-based `TestClient`; check the replacement.
 
 ### **P1**
 

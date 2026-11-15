@@ -149,10 +149,25 @@ the root (blocks traversal and symlink escape).
 `settings` (tmp dirs, `chunk_max_chars=40`, `silence_ms=50`), `store`, `engine` (`FakeTts`).
 Coverage gate 80% (`pyproject.toml`), `tts_kokoro.py` omitted.
 
-Gates (`make lint typecheck test`) are the same locally, in pre-commit/pre-push
-(`.pre-commit-config.yaml`) and in CI (`.github/workflows/ci.yml`). The real-model smoke test
-is skipped in CI. Dependencies are locked in `backend/uv.lock`; Python 3.12
-(`backend/.python-version`).
+Gates: `make lint typecheck test`. `make lint` runs every pre-commit hook except mypy
+(`.pre-commit-config.yaml`: hygiene, gitleaks, codespell, pyproject-fmt, ruff, uv-lock,
+prettier; bandit until [D-014](DECISION.md)) and **fixes files**; CI fails if it changed any.
+Git hooks: checks on commit, commit-message format, pytest on push; `main` and `develop`
+are blocked. CI (`.github/workflows/ci.yml`) calls the same make targets; run it locally with
+`make ci` (`act`). The real-model smoke test is skipped in CI. Dependencies are locked in
+`backend/uv.lock`, dev tools sit in the `dev` dependency group, Python 3.12
+(`backend/.python-version`). Decisions: [D-012](DECISION.md).
+
+## Optional tooling (off by default)
+
+No hook, no CI job. Config in gitignored `.env.tools` (template `.env.tools.example`).
+Decision: [D-013](DECISION.md).
+
+- `make trivy`: builds `mark2audio:local`, scans it with the sibling `trivy-docker-scanner`
+  repo (`TRIVY_DIR`). Reports land in that repo.
+- `make sonar`: tests with a coverage XML, then SonarScanner (docker) against a local
+  SonarQube (`SONAR_HOST_URL`, `SONAR_TOKEN`). Settings: `backend/sonar-project.properties`.
+- `make ci`: the CI workflow locally via `act`.
 
 ## Technical rules
 
