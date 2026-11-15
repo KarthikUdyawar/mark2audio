@@ -697,5 +697,8 @@ Each fact lives in exactly one document. Others link to it, never copy it.
 
 - Doubts first: ask before creating or changing files.
 - Need a file, code, or CLI output? Ask in a blockquote list (`> command`).
+- Every code block, command, script and diff names its target file by path relative to the
+  repo root (header line, `# target: path`, or diff header). Unlabeled code is not allowed.
+- Commands run from the repo root unless a `cd` is shown.
 - File changes: git diff for text docs, `uv run python - << 'PY'` mutation script for computed edits.
 - Never claim a command passed unless its output was shown.
