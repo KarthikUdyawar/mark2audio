@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm
+FROM python:3.12.7-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -9,9 +9,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /srv
 
-# Install OS updates and runtime dependencies.
+# Install runtime dependencies.
 RUN apt-get update \
-    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
         ffmpeg \
     && apt-get clean \
