@@ -75,6 +75,8 @@ Input for S1 planning, in rough priority order.
 - Malformed Markdown, very long documents, disk-full, FFmpeg failure, restart during conversion.
 - Troubleshooting guide and known limitations.
 - Worker health check (technical rule: Docker and operations, item 3; none exists yet).
+- Tests for `app/main.py` (0% covered) and the uncovered worker paths (81%).
+- Pin GitHub Actions by commit SHA, as pre-commit hooks already are.
 
 ### **P1**
 

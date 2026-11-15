@@ -23,5 +23,5 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T19 Opt-in `make trivy` and `make sonar` (`96f75fb`, `5987421`)
 - [x] T22 `make lint` runs all pre-commit hooks, as the docs state
 - [x] T23 Map `docs/STRUCTURE.md` in the CLAUDE.md documentation map
-- [ ] T20 Review sprint diff (CLAUDE.md section 18), fix findings
+- [x] T20 Review sprint diff (CLAUDE.md section 18), fix findings (`41be831`, `4fd98e0`, `3279ac0`, `8d8d4ed`, `55ea393`)
 - [ ] T21 Merge to `develop`, `release/v0.0.0` → `main`, tag `v0.0.0`, back-merge, handoff
