@@ -39,16 +39,13 @@ help: ## list available targets
 # Setup
 # ---------------------------------------------------------------------------
 
-setup: ## install dependencies and configure pre-commit hooks
-	cd $(BACKEND_DIR) && uv sync --extra tts
-	uv tool install pre-commit
-	pre-commit install --install-hooks
+setup: install hooks ## install dependencies and git hooks
 
 install: ## install backend dependencies
 	cd $(BACKEND_DIR) && uv sync -q --extra tts
 
-hooks: ## run all pre-commit hooks on all files
-	SKIP=no-commit-to-branch uv run --project $(BACKEND_DIR) pre-commit run --all-files
+hooks: ## install git hooks once: commit, commit-msg, pre-push
+	uv run --project $(BACKEND_DIR) pre-commit install --install-hooks
 
 # ---------------------------------------------------------------------------
 # Development
