@@ -28,6 +28,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
         with:
+          version: "0.13.6"
           python-version: "3.12"
           enable-cache: ${{ !env.ACT }}
           cache-dependency-glob: backend/uv.lock
