@@ -1,0 +1,108 @@
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+default_stages: [pre-commit]
+minimum_pre_commit_version: "3.2.0"
+
+repos:
+  # 1. Cheap file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-case-conflict
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: fix-byte-order-marker
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500, --enforce-all]
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: debug-statements
+      - id: detect-private-key
+      - id: forbid-new-submodules
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, develop]
+
+  # 2. Secrets
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 2ca41cc1372d1e939a6a879f18cdc19fc1cac1ce # frozen: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  # 3. pyproject.toml formatting
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: 3c6e76e10abcae02303212289efed3413350769c # frozen: v2.30.6
+    hooks:
+      - id: pyproject-fmt
+        files: ^backend/pyproject\.toml$
+
+  # 3b. Spelling in docs and code
+  - repo: https://github.com/codespell-project/codespell
+    rev: 57b21406f092110c18776e39b0bda50d37c945c8 # frozen: v2.4.3
+    hooks:
+      - id: codespell
+        exclude: ^backend/uv\.lock$
+
+  - repo: local
+    hooks:
+      # 4. Python: format and lint via ruff. Rules live in backend/pyproject.toml
+      - id: ruff-fix
+        name: ruff check --fix
+        entry: uv run --project backend ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types: [python]
+        require_serial: true
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --project backend ruff format
+        language: system
+        types: [python]
+        require_serial: true
+
+      # 5. Types (strict, real project env)
+      - id: mypy
+        name: mypy strict
+        entry: bash -c 'cd backend && uv run mypy app tests'
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+
+      # 6. Lockfile in sync
+      - id: uv-lock
+        name: uv lock --check
+        entry: bash -c 'cd backend && uv lock --check'
+        language: system
+        files: ^backend/(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+
+      # 7. Docs and config formatting
+      - id: prettier
+        name: prettier
+        entry: prettier --write --ignore-unknown
+        language: node
+        additional_dependencies: ["prettier@3.6.2"]
+        types_or: [markdown, yaml, json]
+
+      # 8. Commit message: type: summary (or a merge)
+      - id: commit-msg-format
+        name: commit message format
+        entry: "^(feat|fix|docs|test|chore|ci|refactor|build|style|perf|revert): .+|^Merge "
+        language: pygrep
+        args: [--negate]
+        stages: [commit-msg]
+
+      # 9. Tests before push
+      - id: pytest
+        name: pytest
+        entry: bash -c 'cd backend && uv run pytest'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

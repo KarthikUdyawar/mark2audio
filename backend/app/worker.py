@@ -18,7 +18,7 @@ from app.tts import TtsEngine, load_engine
 log = logging.getLogger("mark2audio.worker")
 
 
-class _Cancelled(Exception):
+class _CancelledError(Exception):
     pass
 
 
@@ -31,7 +31,7 @@ def run_pending(store: Store, engine: TtsEngine, settings: Settings) -> bool:
     try:
         _convert(store, engine, settings, job, temp)
         _settle(store, job.id, "completed")
-    except _Cancelled:
+    except _CancelledError:
         pass
     except AppError as err:
         log.warning("job %s failed: %s", job.id, err.code, exc_info=err.__cause__ is not None)
@@ -69,7 +69,7 @@ def _convert(store: Store, engine: TtsEngine, settings: Settings, job: Job, temp
     with WavSink(wav) as sink:
         for done, chunk in enumerate(chunks, start=1):
             if store.get_job(job.id).status == "cancelled":
-                raise _Cancelled
+                raise _CancelledError
             audio = engine.synthesize(chunk.text, job.voice_id, job.speed, job.language)
             sink.write(audio.samples, audio.rate)
             sink.silence(settings.silence_ms)
@@ -80,7 +80,7 @@ def _convert(store: Store, engine: TtsEngine, settings: Settings, job: Job, temp
     encode_mp3(wav, part, job.bitrate_kbps, book.title, settings.ffmpeg_timeout_s)
     probe_mp3(part)
     if store.get_job(job.id).status == "cancelled":
-        raise _Cancelled
+        raise _CancelledError
     os.replace(part, out_dir / "audiobook.mp3")  # atomic publish
 
 
