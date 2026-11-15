@@ -1,0 +1,36 @@
+minimum_pre_commit_version: "3.5.0"
+default_install_hook_types: [pre-commit, pre-push]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, develop]
+  - repo: local
+    hooks:
+      - id: lint
+        name: make lint (ruff, format check, bandit)
+        entry: make lint
+        language: system
+        pass_filenames: false
+        files: ^backend/.*\.(py|toml)$
+      - id: typecheck
+        name: make typecheck (mypy strict)
+        entry: make typecheck
+        language: system
+        pass_filenames: false
+        files: ^backend/.*\.(py|toml)$
+      - id: test
+        name: make test (pytest, 80% coverage)
+        entry: make test
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
