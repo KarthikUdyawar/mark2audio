@@ -4,7 +4,7 @@ hooks:     ; uv run --project backend pre-commit install --install-hooks
 api:       ; cd backend && M2A_DATA_DIR=../data M2A_MODEL_DIR=../models/kokoro uv run uvicorn app.main:create --factory --reload --port 8000
 worker:    ; cd backend && M2A_DATA_DIR=../data M2A_MODEL_DIR=../models/kokoro uv run python -m app.worker
 test:      ; cd backend && uv run pytest
-lint:      ; cd backend && uv run ruff check . && uv run ruff format --check . && uv run bandit -q -r app
+lint:      ; SKIP=no-commit-to-branch,mypy uv run --project backend pre-commit run --all-files && cd backend && uv run bandit -q -r app
 typecheck: ; cd backend && uv run mypy app tests
 format:    ; cd backend && uv run ruff format . && uv run ruff check --fix .
 up:        ; docker compose up -d --build

@@ -662,12 +662,15 @@ Each fact lives in exactly one document. Others link to it, never copy it.
 
 1. Plan: raise doubts first, then write sprint PRD and TODO. Log decisions in DECISION.md.
 2. Branch `feature/sN-<slug>` from `develop`. One branch per sprint.
-3. One commit per TODO task, conventional messages (`feat:`, `fix:`, `test:`, `docs:`, `chore:`).
-4. One-time `make hooks`: lint and typecheck run on commit, tests on push, commits to
-   `main`/`develop` are blocked (`SKIP=no-commit-to-branch` for release merges).
-   Before each commit: `make test lint typecheck` green.
+3. One commit per TODO task, conventional messages (`feat fix docs test chore ci refactor build style perf revert`, enforced by the
+   commit-msg hook).
+4. One-time `make hooks`: hygiene, secrets, spelling, formatting, ruff and mypy run on commit,
+   commit-message format on commit-msg, tests on push; commits to `main`/`develop` are
+   blocked. `make lint` auto-fixes files. Before each commit: `make test lint typecheck` green.
 5. Sprint end: review the sprint diff against ARCHITECTURE.md and section 18.
-6. Merge `feature/*` → `develop`, cut `release/v0.N.0` → `main`, tag `v0.N.0`, merge `main` back to `develop`.
+6. Merge `feature/*` → `develop`, cut `release/v0.N.0` → `main`, tag `v0.N.0`, merge `main` back
+   to `develop`. Merge commits pass the commit-msg hook: `chore: release v0.N.0`,
+   `chore: merge sprint SN into develop`.
 7. Write a handoff note for the next session.
 
 `main` and `develop` are never committed to directly (the free GitHub plan cannot enforce this).
