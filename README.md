@@ -13,7 +13,7 @@ make up             # docker compose: api (+UI) and worker, bound to 127.0.0.1:8
 Open <http://127.0.0.1:8000>, drop a `.md`, pick voice/speed, Convert, play or download.
 After `make model`, conversion needs no network.
 
-Native dev: `make install`, then `make api` and `make worker` in two terminals.
+Native dev: `make install hooks`, then `make api` and `make worker` in two terminals.
 No model yet? `M2A_FAKE_TTS=1` makes sine-tone audio to try the pipeline.
 
 ## Data

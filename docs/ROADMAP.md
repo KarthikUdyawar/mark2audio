@@ -63,6 +63,7 @@ Input for S1 planning, in rough priority order.
 ### **Verify the baseline**
 
 - Run the Kokoro adapter against the real model; fix assumptions.
+- `test_smoke_kokoro` skips even when `models/kokoro/` has both files: find out why, make it run.
 - Record model artifact source, revision, license and sha256 (`make model` URLs are from memory).
 - Build and run Docker Compose; test conversion with outbound network disabled.
 - Bind-mount permissions (container uid 1000).
@@ -73,6 +74,8 @@ Input for S1 planning, in rough priority order.
   fetched; verify logs contain no source text.
 - Malformed Markdown, very long documents, disk-full, FFmpeg failure, restart during conversion.
 - Troubleshooting guide and known limitations.
+- Worker health check (technical rule: Docker and operations, item 3; none exists yet).
+- pytest warning: Starlette deprecates its `httpx`-based `TestClient`; check the replacement.
 
 ### **P1**
 
