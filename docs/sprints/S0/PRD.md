@@ -32,7 +32,8 @@ Verifying Kokoro/Docker/offline, model checksum and license, new features, UI re
 
 - Fresh clone: `make install hooks && make test lint typecheck` passes.
 - `pre-commit run --all-files` passes.
-- CI is green on the sprint branch; `make ci` (act) passes locally.
+- `make ci` (act) passes locally on the sprint branch; CI is green on `develop` after the
+  merge ([D-015](../../DECISION.md)).
 - Every doc link resolves; no fact stated in two docs.
 - `git tag` shows `v0.0.0` on `main`.
 

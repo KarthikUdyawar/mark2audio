@@ -119,3 +119,13 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
   `make lint`; `# nosec` comments are removed.
 - Consequence: the "bandit or equivalent" rule in [ARCHITECTURE.md](ARCHITECTURE.md) is met by
   ruff `S`. Suppressions use `# noqa` or per-file ignores, never `# nosec`.
+
+## D-015 — CI runs on develop, main, release and pull requests
+
+- Date: 2026-11-15 · Status: accepted
+- Context: a push to every `feature/**` branch started a GitHub Actions run. Sprint branches are
+  pushed often and merged locally ([CLAUDE.md](../CLAUDE.md#21-project-mark2audio)).
+- Decision: `ci.yml` triggers on pushes to `main`, `develop` and `release/**`, and on pull
+  requests to `main` and `develop`. The pre-merge gate is `make ci` (`act`) plus `make check`.
+- Consequence: a feature branch gets no remote CI until it is merged into `develop` or a PR is
+  opened. Run `make ci` before every merge.
