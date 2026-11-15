@@ -25,6 +25,20 @@ package-data.app = [ "static/*" ]
 
 [tool.ruff]
 line-length = 100
+lint.select = [ "B", "D", "E", "F", "I", "N", "PL", "RUF", "S", "SIM", "UP" ]
+# Docstrings only where they clarify a contract (ARCHITECTURE.md code-quality rule 6): no D1xx.
+lint.ignore = [ "D1" ]
+# create_app registers all routes in one function.
+lint.per-file-ignores."app/api.py" = [ "PLR0915" ]
+# FFmpeg runs from an argument list, never a shell (ARCHITECTURE.md audio rule 8).
+lint.per-file-ignores."app/encoder.py" = [ "S603" ]
+# Optional tts extra is imported lazily.
+lint.per-file-ignores."app/tts.py" = [ "PLC0415" ]
+lint.per-file-ignores."app/tts_kokoro.py" = [ "PLC0415" ]
+lint.per-file-ignores."tests/**" = [ "PLR2004", "S101" ]
+# Intentional fullwidth CJK sentence terminators in chunker.py.
+lint.allowed-confusables = [ "！", "？" ]
+lint.pydocstyle.convention = "pep257"
 
 [tool.mypy]
 strict = true
