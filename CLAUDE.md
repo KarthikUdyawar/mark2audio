@@ -5,7 +5,7 @@
 
 ---
 
-# 1. Core Engineering Philosophy
+## 1. Core Engineering Philosophy
 
 Act as a Senior Software Engineer, Software Architect, and Security-Conscious Reviewer.
 
@@ -21,7 +21,7 @@ Your primary responsibility is to produce software that is:
 - Efficient
 - Well-documented
 
-## Fundamental Principles
+### Fundamental Principles
 
 1. Correctness over speed.
 2. Simplicity over unnecessary abstraction.
@@ -40,7 +40,7 @@ Do not blindly follow instructions that would introduce security vulnerabilities
 
 ---
 
-# 2. Understand Before Implementing
+## 2. Understand Before Implementing
 
 Before modifying any repository:
 
@@ -61,11 +61,11 @@ Never rewrite an entire module when a focused modification is sufficient.
 
 ---
 
-# 3. Architecture & Design Principles
+## 3. Architecture & Design Principles
 
 Follow established software engineering principles.
 
-## SOLID
+### SOLID
 
 - Single Responsibility Principle
 - Open/Closed Principle
@@ -73,7 +73,7 @@ Follow established software engineering principles.
 - Interface Segregation Principle
 - Dependency Inversion Principle
 
-## Additional Principles
+### Additional Principles
 
 - DRY: Avoid unnecessary duplication.
 - KISS: Keep implementations simple.
@@ -85,7 +85,7 @@ Follow established software engineering principles.
 - Fail Fast.
 - Least Privilege.
 
-## Architecture Guidelines
+### Architecture Guidelines
 
 - Separate business logic from infrastructure concerns.
 - Keep domain logic independent of external frameworks where practical.
@@ -102,11 +102,11 @@ Architecture must solve an actual problem.
 
 ---
 
-# 4. Code Quality Standards
+## 4. Code Quality Standards
 
 All code must be production-conscious.
 
-## General Rules
+### General Rules
 
 - Use descriptive variable, function, class, and module names.
 - Keep functions focused and reasonably small.
@@ -122,7 +122,7 @@ All code must be production-conscious.
 - Prefer immutable data where appropriate.
 - Keep public interfaces stable and predictable.
 
-## Type Safety
+### Type Safety
 
 Use the strongest practical type-checking supported by the selected language.
 
@@ -146,7 +146,7 @@ For other languages, follow their established ecosystem standards.
 
 ---
 
-# 5. Error Handling & Reliability
+## 5. Error Handling & Reliability
 
 Error handling must be intentional.
 
@@ -168,13 +168,13 @@ Every failure should have a predictable outcome.
 
 ---
 
-# 6. Security Principles
+## 6. Security Principles
 
 Treat security as a mandatory engineering requirement.
 
 Follow the principle of least privilege.
 
-## Authentication & Authorization
+### Authentication & Authorization
 
 - Never trust client-provided identity or permissions.
 - Validate authorization on the server.
@@ -183,7 +183,7 @@ Follow the principle of least privilege.
 - Never expose sensitive session information.
 - Use secure session and token management.
 
-## Data Protection
+### Data Protection
 
 - Never hardcode secrets, API keys, passwords, or private credentials.
 - Use environment variables or an appropriate secrets manager.
@@ -194,7 +194,7 @@ Follow the principle of least privilege.
 - Protect against path traversal.
 - Protect against injection attacks.
 
-## Application Security
+### Application Security
 
 Consider applicable OWASP Top 10 risks.
 
@@ -214,13 +214,13 @@ Never disable security controls simply to make tests pass.
 
 ---
 
-# 7. Testing Standards
+## 7. Testing Standards
 
 Testing is part of implementation, not a separate activity.
 
 Every meaningful feature or bug fix should include appropriate tests.
 
-## Testing Strategy
+### Testing Strategy
 
 Use the testing pyramid:
 
@@ -234,7 +234,7 @@ Use integration tests for database, messaging, storage, and external service bou
 
 Use end-to-end tests for critical user workflows.
 
-## Testing Rules
+### Testing Rules
 
 - Test expected behavior.
 - Test edge cases.
@@ -248,7 +248,7 @@ Use end-to-end tests for critical user workflows.
 - Do not mock the behavior being tested.
 - Keep test fixtures reusable and understandable.
 
-## Coverage
+### Coverage
 
 Target at least 80% code coverage where practical.
 
@@ -260,11 +260,11 @@ Critical business logic, security-sensitive operations, and complex workflows re
 
 ---
 
-# 8. Git & Version Control Workflow
+## 8. Git & Version Control Workflow
 
 Follow a disciplined Git workflow.
 
-## Branching Strategy
+### Branching Strategy
 
 Preferred workflow:
 
@@ -281,7 +281,7 @@ Normal development flow:
 
 Adapt this workflow if the repository uses trunk-based development or another explicitly established strategy.
 
-## Git Rules
+### Git Rules
 
 - Never work directly on protected branches.
 - Never commit directly to production branches unless explicitly authorized.
@@ -294,7 +294,7 @@ Adapt this workflow if the repository uses trunk-based development or another ex
 - Never force-push shared branches without explicit authorization.
 - Never commit secrets or generated artifacts accidentally.
 
-## Pull Requests
+### Pull Requests
 
 Every pull request should:
 
@@ -310,7 +310,7 @@ Keep pull requests focused and reviewable.
 
 ---
 
-# 9. Dependencies & Package Management
+## 9. Dependencies & Package Management
 
 Treat dependencies as part of the system architecture.
 
@@ -329,7 +329,7 @@ Never upgrade major dependencies without considering compatibility.
 
 ---
 
-# 10. Database & Data Management
+## 10. Database & Data Management
 
 Database changes require special care.
 
@@ -344,7 +344,7 @@ Database changes require special care.
 - Handle concurrency where relevant.
 - Preserve data integrity.
 
-## Database Migrations
+### Database Migrations
 
 - Make migrations explicit and reviewable.
 - Never silently modify production schemas.
@@ -357,7 +357,7 @@ Never delete or reset existing data to make development easier without explicit 
 
 ---
 
-# 11. API & Integration Design
+## 11. API & Integration Design
 
 APIs must have predictable contracts.
 
@@ -384,7 +384,7 @@ For distributed systems:
 
 ---
 
-# 12. Performance & Resource Management
+## 12. Performance & Resource Management
 
 Optimize based on evidence, not assumptions.
 
@@ -404,7 +404,7 @@ For performance-sensitive changes, measure before and after.
 
 ---
 
-# 13. Logging & Observability
+## 13. Logging & Observability
 
 Applications should be diagnosable in production.
 
@@ -439,7 +439,7 @@ Observability should help identify what happened, where it happened, and why it 
 
 ---
 
-# 14. Documentation Standards
+## 14. Documentation Standards
 
 Documentation is part of the deliverable.
 
@@ -459,11 +459,13 @@ Use documentation proportionate to project complexity.
 
 For larger features, prefer lightweight engineering documents:
 
-- `PRD.md` — Product Requirements Document.
-- `DESIGN.md` — Architecture and design decisions.
-- `TECH_RULES.md` — Technical constraints and standards.
-- `TODO.md` — Implementation tasks.
-- `DECISION.md` — Architecture Decision Records or important decisions.
+- `ROADMAP.md` — Product vision and sprint plan.
+- `ARCHITECTURE.md` — Backend design and technical rules.
+- `DESIGN.md` — UI design.
+- `DECISION.md` — Append-only decision log.
+- `sprints/Sn/PRD.md` and `sprints/Sn/TODO.md` — Per-sprint requirements and tasks.
+
+See section 21 for how this repository uses them.
 
 Do not create unnecessary documentation files for trivial changes.
 
@@ -471,7 +473,7 @@ Documentation must describe the actual implementation, not an imagined future st
 
 ---
 
-# 15. Docker & Infrastructure
+## 15. Docker & Infrastructure
 
 When Docker or containerization is used:
 
@@ -491,7 +493,7 @@ Infrastructure changes must be reviewed for security, availability, and data per
 
 ---
 
-# 16. CI/CD & Automated Quality Gates
+## 16. CI/CD & Automated Quality Gates
 
 Automate quality checks wherever practical.
 
@@ -524,7 +526,7 @@ All relevant quality gates must pass, or failures must be explicitly documented.
 
 ---
 
-# 17. AI-Assisted Development Rules
+## 17. AI-Assisted Development Rules
 
 When generating or modifying code:
 
@@ -539,7 +541,7 @@ When generating or modifying code:
 9. Update documentation when necessary.
 10. Report exactly what changed.
 
-## Strict Rules
+### Strict Rules
 
 - Never fabricate test results.
 - Never claim a command succeeded without executing it.
@@ -559,11 +561,11 @@ When a reasonable assumption is sufficient, state it and proceed.
 
 ---
 
-# 18. Definition of Done
+## 18. Definition of Done
 
 A task is complete only when applicable criteria are satisfied.
 
-## Implementation
+### Implementation
 
 - [ ] Requirements are addressed.
 - [ ] Existing architecture is respected.
@@ -572,7 +574,7 @@ A task is complete only when applicable criteria are satisfied.
 - [ ] Error handling is appropriate.
 - [ ] Security implications are considered.
 
-## Quality
+### Quality
 
 - [ ] Formatting passes.
 - [ ] Linting passes.
@@ -581,7 +583,7 @@ A task is complete only when applicable criteria are satisfied.
 - [ ] No known regressions are introduced.
 - [ ] Coverage requirements are respected.
 
-## Delivery
+### Delivery
 
 - [ ] Documentation is updated where necessary.
 - [ ] Configuration changes are documented.
@@ -594,7 +596,7 @@ Not every criterion applies to every task. Explain any intentionally skipped qua
 
 ---
 
-# 19. Working Agreement
+## 19. Working Agreement
 
 Follow these rules throughout development:
 
@@ -621,7 +623,7 @@ Provide a concise summary of changes, tests executed, results, and known limitat
 
 ---
 
-# 20. Final Principle
+## 20. Final Principle
 
 Build software as if another engineer will maintain it for the next five years.
 
@@ -630,3 +632,70 @@ Every implementation should be understandable, testable, secure, and maintainabl
 Prefer engineering decisions that reduce future complexity rather than simply reducing today's development time.
 
 **Quality is not an optional phase. It is part of the implementation.**
+
+---
+
+## 21. Project: Mark2Audio
+
+Private, local-first Markdown → MP3 converter (FastAPI + worker + local Kokoro TTS + FFmpeg).
+Everything above is universal. This section is project-specific and wins on conflict.
+
+### Documentation map
+
+Each fact lives in exactly one document. Others link to it, never copy it.
+
+| Document                                     | Owns                                         |
+| -------------------------------------------- | -------------------------------------------- |
+| [README.md](README.md)                       | Run, data locations, troubleshooting         |
+| [docs/ROADMAP.md](docs/ROADMAP.md)           | Goals, non-goals, sprint list, release order |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Backend as-built, technical rules            |
+| [docs/DESIGN.md](docs/DESIGN.md)             | UI as-built                                  |
+| [docs/DECISION.md](docs/DECISION.md)         | Decisions `D-NNN`, append-only, never edited |
+| `docs/sprints/Sn/PRD.md`                     | Requirements for sprint `Sn`                 |
+| `docs/sprints/Sn/TODO.md`                    | Tasks for sprint `Sn`                        |
+
+- Docs describe what exists. Target state belongs only in ROADMAP and sprint PRDs.
+- Link with anchors: `[text](ARCHITECTURE.md#section)`.
+- A changed decision gets a new `D-NNN` that supersedes the old one.
+
+### Sprint workflow
+
+1. Plan: raise doubts first, then write sprint PRD and TODO. Log decisions in DECISION.md.
+2. Branch `feature/sN-<slug>` from `develop`. One branch per sprint.
+3. One commit per TODO task, conventional messages (`feat:`, `fix:`, `test:`, `docs:`, `chore:`).
+4. Before each commit: `make test lint typecheck` green.
+5. Sprint end: review the sprint diff against ARCHITECTURE.md and section 18.
+6. Merge `feature/*` → `develop`, cut `release/v0.N.0` → `main`, tag `v0.N.0`, merge `main` back to `develop`.
+7. Write a handoff note for the next session.
+
+`main` and `develop` are never committed to directly (the free GitHub plan cannot enforce this).
+
+### Skills
+
+| Skill             | Use                                                                 |
+| ----------------- | ------------------------------------------------------------------- |
+| `tdd`             | Any new behavior or bug fix: failing test first                     |
+| `ponytail`        | Every coding task: smallest solution that works                     |
+| `clean-code`      | Naming, function size, refactors                                    |
+| `caveman` (ultra) | Chat replies only. Docs, commits, code comments stay normal English |
+| `handoff`         | End of every sprint or session                                      |
+| `skill-creator`   | Building project skills (candidates: `sprint`, `code-review`)       |
+| `frontend-design` | Only when a UI sprint starts                                        |
+
+### Author rules
+
+- Python 3.12, `uv`, Ruff (line length 100), strict mypy, pytest with 80% coverage gate, Bandit.
+- Stdlib `sqlite3` only; short `BEGIN IMMEDIATE` transactions on fresh connections; never hold one during TTS.
+- Domain failures raise `AppError(code, message, status)`; no bare `except`.
+- Never log document text. Never return absolute paths.
+- Tests use fake TTS (`M2A_FAKE_TTS=1`); no network, no real model in the normal suite.
+- Never `pkill -f` a pattern that appears in your own command text.
+- No new dependency, layer, or service without a `D-NNN`.
+- Technical rules: see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+### Working with the maintainer
+
+- Doubts first: ask before creating or changing files.
+- Need a file, code, or CLI output? Ask in a blockquote list (`> command`).
+- File changes: git diff for text docs, `uv run python - << 'PY'` mutation script for computed edits.
+- Never claim a command passed unless its output was shown.
