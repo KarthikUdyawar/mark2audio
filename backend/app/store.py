@@ -132,9 +132,11 @@ class Store:
     @staticmethod
     def _book(row: sqlite3.Row) -> Book:
         status = row["job_status"]
+        if status not in {"queued", "processing", "completed", "failed"}:
+            status = "uploaded"
         return Book(
             row["id"], row["title"], row["original_filename"], row["chapter_count"],
-            row["created_at"], status if status in {"queued", "processing", "completed", "failed"} else "uploaded",
+            row["created_at"], status,
         )  # fmt: skip
 
     def delete_book(self, book_id: str) -> None:
