@@ -11,9 +11,12 @@ One file, `backend/app/static/index.html`: vanilla JS, no build step, served by 
 ### Views
 
 - **Upload**: drop zone (`#drop`) and file input (`.md`, `.markdown`). Messages in `#upmsg`.
-- **Library**: `#books`, one button per book, labelled `Title (status)`.
-- **Detail** (`#detail`, hidden until a book is opened): title, chapter outline (`#chapters`,
-  titles only), convert form, job message (`#jobmsg`), progress bar (`#bar`), result (`#result`).
+- **Library**: `#books` in a section labelled by its heading, one button per book, labelled
+  `Title (status)`.
+- **Detail** (`#detail`, hidden until a book is opened), one labelled subsection each:
+  title (`Untitled book` if empty), chapter outline (`#chapters`, titles only,
+  `Untitled chapter` if empty), convert form in a `fieldset` (legend "Audio conversion
+  settings"), conversion progress (`#jobmsg`, `#bar`), result (`#result`).
 
 ### Convert form
 
@@ -37,8 +40,9 @@ API contract: [ARCHITECTURE.md](ARCHITECTURE.md#api).
 
 ### Accessibility
 
-Labelled inputs, `role="status"` messages, `aria-live` on the detail section, native `button`,
-`progress` and `audio` elements. Not audited.
+Inputs labelled with `for`, `fieldset`/`legend` for the form, headings `h1` to `h3`,
+`role="status"` messages, `aria-live="polite"` on `#jobmsg`, `aria-label` on `#bar` and the
+player, native `button`, `progress` and `audio` elements. Not audited.
 
 ### Gaps
 
