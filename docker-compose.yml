@@ -12,7 +12,13 @@ services:
     <<: *common
     ports: ["127.0.0.1:8000:8000"] # localhost only; do not expose to LAN unless you mean to
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/v1/health')"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/v1/health')",
+        ]
       interval: 15s
   worker:
     <<: *common

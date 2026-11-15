@@ -32,9 +32,9 @@ A real-model smoke test runs automatically when model files exist.
 
 ## Troubleshooting
 
-- *No voices in UI / `MODEL_UNAVAILABLE`*: run `make model`, check `models/kokoro/` has both files.
-- *Health `degraded`*: ffmpeg/ffprobe missing from PATH.
-- *Permission denied on `data/`*: container runs as uid 1000; `chown -R 1000 data`.
+- _No voices in UI / `MODEL_UNAVAILABLE`_: run `make model`, check `models/kokoro/` has both files.
+- _Health `degraded`_: ffmpeg/ffprobe missing from PATH.
+- _Permission denied on `data/`_: container runs as uid 1000; `chown -R 1000 data`.
 
 ## Status
 
