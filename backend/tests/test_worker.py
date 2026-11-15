@@ -1,0 +1,82 @@
+import numpy as np
+import pytest
+
+from app.config import Settings
+from app.encoder import probe_mp3
+from app.errors import AppError
+from app.storage import book_dir
+from app.store import JobParams, Store
+from app.tts import Audio, FakeTts
+from app.worker import run_pending
+from tests.conftest import add_book
+
+PARAMS = JobParams("fake_a", "en-us", 1.0, 128, False)
+
+
+def test_job_completes_with_valid_mp3_and_clean_temp(
+    settings: Settings, store: Store, engine: FakeTts
+) -> None:
+    book_id = add_book(settings, store)
+    job = store.create_job(book_id, PARAMS)
+    assert run_pending(store, engine, settings) is True
+    done = store.get_job(job.id)
+    assert (done.status, done.progress_percent) == ("completed", 100)
+    assert done.total_chunks == done.completed_chunks >= 2
+    assert probe_mp3(book_dir(settings.audio_dir, book_id) / "audiobook.mp3") > 0
+    assert not (settings.temp_dir / job.id).exists()
+    assert run_pending(store, engine, settings) is False
+
+
+class BoomTts(FakeTts):
+    def synthesize(self, text: str, voice_id: str, speed: float, language: str) -> Audio:
+        raise RuntimeError(f"secret document text: {text}")
+
+
+def test_tts_failure_marks_failed_without_leaking_text(settings: Settings, store: Store) -> None:
+    job = store.create_job(add_book(settings, store), PARAMS)
+    run_pending(store, BoomTts(), settings)
+    failed = store.get_job(job.id)
+    assert failed.status == "failed" and failed.error_code == "INTERNAL"
+    assert "secret" not in (failed.error_message or "")
+    assert not (settings.temp_dir / job.id).exists()
+
+
+def test_empty_book_text_fails_with_clear_code(
+    settings: Settings, store: Store, engine: FakeTts
+) -> None:
+    job = store.create_job(add_book(settings, store, "# \n"), PARAMS)
+    run_pending(store, engine, settings)
+    assert store.get_job(job.id).error_code == "NO_TEXT"
+
+
+class CancelTts(FakeTts):
+    def __init__(self, store: Store, job_id: str) -> None:
+        self.store, self.job_id = store, job_id
+
+    def synthesize(self, text: str, voice_id: str, speed: float, language: str) -> Audio:
+        self.store.transition(self.job_id, "cancelled")  # user cancels mid-run
+        return Audio(np.zeros(100, dtype=np.float32), 24000)
+
+
+def test_cancel_stops_at_chunk_boundary_and_publishes_nothing(
+    settings: Settings, store: Store
+) -> None:
+    book_id = add_book(settings, store)
+    job = store.create_job(book_id, PARAMS)
+    run_pending(store, CancelTts(store, job.id), settings)
+    assert store.get_job(job.id).status == "cancelled"
+    assert not (book_dir(settings.audio_dir, book_id) / "audiobook.mp3").exists()
+    assert not (settings.temp_dir / job.id).exists()
+
+
+def test_stale_job_recovered_on_start(settings: Settings, store: Store) -> None:
+    job = store.create_job(add_book(settings, store), PARAMS)
+    store.transition(job.id, "processing")
+    store.fail_stale()
+    assert store.get_job(job.id).error_code == "WORKER_RESTARTED"
+
+
+def test_unknown_voice_rejected_by_engine(engine: FakeTts) -> None:
+    with pytest.raises(AppError) as err:
+        engine.synthesize("x", "nope", 1.0, "en-us")
+    assert err.value.code == "VOICE_NOT_FOUND"

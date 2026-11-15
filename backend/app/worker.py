@@ -1,0 +1,101 @@
+"""Single-job worker: claim → parse → chunk → synthesize → encode → validate → publish."""
+
+import logging
+import os
+import shutil
+import time
+from pathlib import Path
+
+from app.chunker import chunk_chapters
+from app.config import Settings
+from app.encoder import WavSink, encode_mp3, probe_mp3
+from app.errors import AppError
+from app.parser import parse_markdown
+from app.storage import book_dir
+from app.store import Job, Store
+from app.tts import TtsEngine, load_engine
+
+log = logging.getLogger("mark2audio.worker")
+
+
+class _Cancelled(Exception):
+    pass
+
+
+def run_pending(store: Store, engine: TtsEngine, settings: Settings) -> bool:
+    """Run one queued job if any. Returns whether a job was claimed."""
+    job = store.claim_next()
+    if job is None:
+        return False
+    temp = settings.temp_dir / job.id
+    try:
+        _convert(store, engine, settings, job, temp)
+        _settle(store, job.id, "completed")
+    except _Cancelled:
+        pass
+    except AppError as err:
+        log.warning("job %s failed: %s", job.id, err.code, exc_info=err.__cause__ is not None)
+        _settle(store, job.id, "failed", err.code, err.message)
+    except Exception:
+        log.exception("job %s crashed", job.id)  # stack trace stays server-side
+        _settle(store, job.id, "failed", "INTERNAL", "Conversion failed. See server logs.")
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+        (book_dir(settings.audio_dir, job.book_id) / "audiobook.mp3.part").unlink(missing_ok=True)
+    return True
+
+
+def _settle(
+    store: Store, job_id: str, to: str, code: str | None = None, msg: str | None = None
+) -> None:
+    try:
+        store.transition(job_id, to, code, msg)
+    except AppError as err:
+        if err.code != "INVALID_TRANSITION":  # already cancelled by the user
+            raise
+
+
+def _convert(store: Store, engine: TtsEngine, settings: Settings, job: Job, temp: Path) -> None:
+    book = store.get_book(job.book_id)
+    source = book_dir(settings.uploads_dir, job.book_id) / "source.md"
+    chapters = parse_markdown(
+        source.read_text(encoding="utf-8"), include_code=job.include_code_blocks
+    )
+    if not chapters:
+        raise AppError("NO_TEXT", "Document has no speakable text.")
+    chunks = chunk_chapters(chapters, settings.chunk_max_chars)
+    temp.mkdir(parents=True)
+    wav = temp / "book.wav"
+    with WavSink(wav) as sink:
+        for done, chunk in enumerate(chunks, start=1):
+            if store.get_job(job.id).status == "cancelled":
+                raise _Cancelled
+            audio = engine.synthesize(chunk.text, job.voice_id, job.speed, job.language)
+            sink.write(audio.samples, audio.rate)
+            sink.silence(settings.silence_ms)
+            store.set_progress(job.id, done, len(chunks), chunk.chapter_title)
+    out_dir = book_dir(settings.audio_dir, job.book_id)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    part = out_dir / "audiobook.mp3.part"
+    encode_mp3(wav, part, job.bitrate_kbps, book.title, settings.ffmpeg_timeout_s)
+    probe_mp3(part)
+    if store.get_job(job.id).status == "cancelled":
+        raise _Cancelled
+    os.replace(part, out_dir / "audiobook.mp3")  # atomic publish
+
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    settings = Settings.from_env()
+    settings.ensure_dirs()
+    store = Store(settings.db_path)
+    store.fail_stale()
+    engine = load_engine(settings)  # model loaded once per process
+    log.info("worker ready")
+    while True:
+        if not run_pending(store, engine, settings):
+            time.sleep(settings.poll_seconds)
+
+
+if __name__ == "__main__":
+    main()

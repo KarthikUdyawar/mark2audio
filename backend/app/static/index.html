@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mark2Audio</title>
+<style>
+  :root { color-scheme: light dark; --bd: #8886; --ac: #2563eb; }
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 1rem; }
+  h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; }
+  section { border: 1px solid var(--bd); border-radius: .5rem; padding: 1rem; margin: 1rem 0; }
+  label { display: block; margin: .5rem 0; }
+  button, select, input { font: inherit; padding: .35rem .6rem; }
+  button { cursor: pointer; } :focus-visible { outline: 3px solid var(--ac); outline-offset: 2px; }
+  #drop { border: 2px dashed var(--bd); padding: 1.5rem; text-align: center; border-radius: .5rem; }
+  #drop.over { border-color: var(--ac); }
+  progress { width: 100%; } .err { color: #b91c1c; } ul { padding-left: 1.2rem; }
+  li.book { list-style: none; margin: .25rem 0; } li.book button { width: 100%; text-align: left; }
+</style>
+</head>
+<body>
+<h1>Mark2Audio</h1>
+<p>Markdown in, MP3 out. Everything stays on this machine.</p>
+
+<section id="drop" aria-label="Upload">
+  <label for="file">Drop a .md file here or choose one</label>
+  <input id="file" type="file" accept=".md,.markdown">
+  <p id="upmsg" role="status"></p>
+</section>
+
+<section><h2>Library</h2><ul id="books"></ul></section>
+
+<section id="detail" hidden aria-live="polite">
+  <h2 id="title"></h2>
+  <ol id="chapters"></ol>
+  <form id="form">
+    <label>Voice <select id="voice" required></select></label>
+    <label>Speed <input id="speed" type="number" min="0.8" max="1.2" step="0.05" value="1"></label>
+    <label>Bitrate <select id="bitrate"><option>128</option><option selected>192</option><option>256</option></select> kbps</label>
+    <label><input id="code" type="checkbox"> Read code blocks aloud</label>
+    <button id="go">Convert</button> <button id="cancel" type="button" hidden>Cancel</button>
+    <button id="del" type="button">Delete book</button>
+  </form>
+  <p id="jobmsg" role="status"></p>
+  <progress id="bar" max="100" value="0" hidden></progress>
+  <div id="result" hidden><audio id="player" controls></audio><p><a id="dl">Download MP3</a></p></div>
+</section>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const TERMINAL = ["completed", "failed", "cancelled"];
+let bookId = null, timer = null, jobId = null;
+
+async function api(path, opts) {
+  const res = await fetch("/api/v1" + path, opts);
+  if (res.status === 204) return null;
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Request failed");
+  return body;
+}
+
+async function loadBooks() {
+  const list = $("#books"); list.replaceChildren();
+  for (const b of await api("/books")) {
+    const li = document.createElement("li"); li.className = "book";
+    const btn = document.createElement("button");
+    btn.textContent = `${b.title} (${b.status})`; btn.onclick = () => openBook(b.id);
+    li.append(btn); list.append(li);
+  }
+}
+
+async function upload(file) {
+  const form = new FormData(); form.append("file", file);
+  $("#upmsg").className = ""; $("#upmsg").textContent = "Uploading…";
+  try {
+    const book = await api("/books/upload", { method: "POST", body: form });
+    $("#upmsg").textContent = `Uploaded “${book.title}”.`;
+    await loadBooks(); await openBook(book.id);
+  } catch (e) { $("#upmsg").className = "err"; $("#upmsg").textContent = e.message; }
+}
+
+async function openBook(id) {
+  clearTimeout(timer); bookId = id;
+  const [book, voices] = await Promise.all([api("/books/" + id), api("/voices")]);
+  $("#detail").hidden = false; $("#title").textContent = book.title;
+  $("#chapters").replaceChildren(...book.chapters.map((c) => Object.assign(document.createElement("li"), { textContent: c.title })));
+  $("#voice").replaceChildren(...voices.filter((v) => v.available).map((v) => Object.assign(document.createElement("option"), { value: v.id, textContent: `${v.name} (${v.language})` })));
+  showJob(book.latest_job, book.status);
+  if (book.latest_job && !TERMINAL.includes(book.latest_job.status)) poll(book.latest_job.id);
+}
+
+function showJob(job, status) {
+  jobId = job?.id ?? null;
+  const active = job && !TERMINAL.includes(job.status);
+  $("#go").disabled = active; $("#cancel").hidden = !active;
+  $("#bar").hidden = !active; $("#bar").value = job?.progress_percent ?? 0;
+  const msg = $("#jobmsg"); msg.className = job?.status === "failed" ? "err" : "";
+  msg.textContent = !job ? "" : job.status === "failed" ? `Failed: ${job.error.message}`
+    : active ? `${job.status} ${job.progress_percent}% ${job.current_chapter ?? ""}` : job.status;
+  $("#result").hidden = status !== "completed";
+  if (status === "completed") { $("#player").src = $("#dl").href = `/api/v1/books/${bookId}/audio?t=${Date.now()}`; }
+}
+
+function poll(id) {
+  timer = setTimeout(async () => {
+    try {
+      const job = await api("/jobs/" + id);
+      showJob(job, job.status === "completed" ? "completed" : "other");
+      if (TERMINAL.includes(job.status)) return loadBooks();
+      poll(id);
+    } catch (e) { $("#jobmsg").className = "err"; $("#jobmsg").textContent = e.message; }
+  }, 1500);
+}
+
+$("#form").onsubmit = async (ev) => {
+  ev.preventDefault(); $("#go").disabled = true;
+  try {
+    const job = await api(`/books/${bookId}/convert`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ voice_id: $("#voice").value, speed: Number($("#speed").value),
+        bitrate_kbps: Number($("#bitrate").value), include_code_blocks: $("#code").checked }),
+    });
+    showJob(job, "other"); poll(job.id); loadBooks();
+  } catch (e) { $("#go").disabled = false; $("#jobmsg").className = "err"; $("#jobmsg").textContent = e.message; }
+};
+$("#cancel").onclick = () => api(`/jobs/${jobId}/cancel`, { method: "POST" }).then((j) => showJob(j, "other"));
+$("#del").onclick = async () => {
+  if (!confirm("Delete this book and its audio?")) return;
+  try { await api("/books/" + bookId, { method: "DELETE" }); $("#detail").hidden = true; loadBooks(); }
+  catch (e) { $("#jobmsg").className = "err"; $("#jobmsg").textContent = e.message; }
+};
+$("#file").onchange = (e) => e.target.files[0] && upload(e.target.files[0]);
+const drop = $("#drop");
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]); };
+loadBooks();
+</script>
+</body>
+</html>

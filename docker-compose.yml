@@ -1,0 +1,17 @@
+# api serves REST + the web UI; worker runs conversions. Same image, shared ./data.
+x-common: &common
+  build: { context: ., dockerfile: backend/Dockerfile }
+  volumes: ["./data:/data", "./models/kokoro:/models:ro"]
+  env_file: [{ path: .env, required: false }]
+  restart: unless-stopped
+services:
+  api:
+    <<: *common
+    ports: ["127.0.0.1:8000:8000"] # localhost only; do not expose to LAN unless you mean to
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/v1/health')"]
+      interval: 15s
+  worker:
+    <<: *common
+    command: ["python", "-m", "app.worker"]
+    depends_on: { api: { condition: service_healthy } }
