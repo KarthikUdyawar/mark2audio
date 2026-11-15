@@ -137,7 +137,8 @@ the root (blocks traversal and symlink escape).
 - `backend/Dockerfile`: `python:3.12.7-slim-bookworm`, FFmpeg, user uid 1000, `pip install ".[tts]"`.
 - `docker-compose.yml`: services `api` (port `127.0.0.1:8000`, health check on `/api/v1/health`)
   and `worker` (waits for api healthy, no health check of its own). Volumes `./data:/data`,
-  `./models/kokoro:/models:ro`; optional `.env`; `restart: unless-stopped`.
+  `./models/kokoro:/models:ro`; optional `.env`; `environment` pins `M2A_DATA_DIR=/data` and `M2A_MODEL_DIR=/models`
+  (wins over `.env`); `restart: unless-stopped`.
 - Native: `make api`, `make worker`, see `Makefile`.
 - Image and compose have not been built or run yet.
 

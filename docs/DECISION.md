@@ -61,3 +61,17 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
 - Date: 2026-11-15 · Status: accepted
 - Decision: `tdd`, `ponytail`, `clean-code`, `handoff`; `caveman` (ultra) for chat replies only.
   `sprint` and `code-review` skills may be built with `skill-creator`.
+
+## D-010 — Locked dependencies, one set of gate commands
+- Date: 2026-11-15 · Status: accepted
+- Decision: `backend/uv.lock` committed; Python minor pinned to 3.12 (`backend/.python-version`;
+  Docker pins 3.12.7). Makefile targets run tools through `uv run`. Pre-commit (local hooks) and
+  CI both call `make lint typecheck test`; hygiene hooks and a `no-commit-to-branch` guard on
+  `main`/`develop` are added. CI installs the `tts` extra so the Kokoro adapter is type-checked.
+- Consequence: change a gate in the Makefile only. Real-model smoke test never runs in CI.
+
+## D-011 — Compose pins container paths
+- Date: 2026-11-15 · Status: accepted
+- Context: `.env` copied from `.env.example` holds native paths and overrides the image `ENV`.
+- Decision: `environment` in `docker-compose.yml` sets `M2A_DATA_DIR=/data`,
+  `M2A_MODEL_DIR=/models`.

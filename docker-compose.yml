@@ -3,6 +3,9 @@ x-common: &common
   build: { context: ., dockerfile: backend/Dockerfile }
   volumes: ["./data:/data", "./models/kokoro:/models:ro"]
   env_file: [{ path: .env, required: false }]
+  environment: # container paths; must win over .env (which holds native paths like data/)
+    M2A_DATA_DIR: /data
+    M2A_MODEL_DIR: /models
   restart: unless-stopped
 services:
   api:
