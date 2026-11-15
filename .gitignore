@@ -14,3 +14,6 @@ models/kokoro/*
 *.mp3
 *.wav
 backups/
+.env.tools
+coverage.xml
+.scannerwork/

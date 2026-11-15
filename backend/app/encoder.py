@@ -1,7 +1,7 @@
 """WAV assembly and FFmpeg MP3 encoding/validation. Never uses a shell."""
 
 import json
-import subprocess  # nosec B404
+import subprocess
 import wave
 from pathlib import Path
 from typing import Self
@@ -55,7 +55,7 @@ def ffmpeg_args(wav: Path, out: Path, bitrate_kbps: int, title: str) -> list[str
 
 def encode_mp3(wav: Path, out: Path, bitrate_kbps: int, title: str, timeout_s: int = 1800) -> None:
     try:
-        run = subprocess.run(  # nosec B603
+        run = subprocess.run(
             ffmpeg_args(wav, out, bitrate_kbps, title),
             capture_output=True, timeout=timeout_s, check=False,
         )  # fmt: skip
@@ -76,7 +76,7 @@ def probe_mp3(path: Path) -> float:
     args = ["ffprobe", "-v", "error", "-show_entries", "format=duration:stream=codec_name",
             "-of", "json", str(path)]  # fmt: skip
     try:
-        run = subprocess.run(args, capture_output=True, timeout=PROBE_TIMEOUT_S, check=True)  # nosec B603
+        run = subprocess.run(args, capture_output=True, timeout=PROBE_TIMEOUT_S, check=True)
         info = json.loads(run.stdout)
         codecs = {s.get("codec_name") for s in info.get("streams", [])}
         duration = float(info["format"]["duration"])
