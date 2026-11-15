@@ -1,8 +1,160 @@
-# Mark2Audio — Technical Rules
+# Mark2Audio — Architecture
 
-These rules are mandatory for implementation and code review unless a decision record explicitly changes them.
+Backend as built, then the mandatory technical rules. Related docs, each fact lives in one place:
+[ROADMAP.md](ROADMAP.md) (goals, sprints) · [DESIGN.md](DESIGN.md) (UI) ·
+[DECISION.md](DECISION.md) (decisions, deviations) ·
+[CLAUDE.md](../CLAUDE.md#21-project-mark2audio) (workflow, git, skills).
 
-## 1. Architecture and scope
+## Overview
+
+Modular monolith, two processes from one image, no broker:
+
+- **api**: FastAPI (`app.main:create`), REST under `/api/v1`, also serves the web UI.
+- **worker**: `python -m app.worker`, polls SQLite, runs one conversion at a time.
+
+SQLite (`data/mark2audio.db`) holds books and jobs. Files live under `data/`. TTS and FFmpeg run
+locally; no network at conversion time.
+
+## Modules
+
+All under `backend/app/`.
+
+| File                | Role                                                                   |
+| ------------------- | ---------------------------------------------------------------------- |
+| `main.py`           | `create()` app factory                                                 |
+| `api.py`            | `create_app(settings, engine)`: router, error handlers, static UI      |
+| `config.py`         | `Settings` frozen dataclass, `Settings.from_env()`                     |
+| `errors.py`         | `AppError(code, message, status)`                                      |
+| `parser.py`         | `parse_markdown(text, include_code)` → `Chapter` list (markdown-it-py) |
+| `chunker.py`        | `chunk_chapters(chapters, max_chars)` → `Chunk` list                   |
+| `tts.py`            | `TtsEngine` protocol, `FakeTts`, `load_engine`, `SPEED_RANGE`          |
+| `tts_kokoro.py`     | `KokoroTts` adapter. Not yet run against real model files              |
+| `encoder.py`        | `WavSink`, `ffmpeg_args`, `encode_mp3`, `probe_mp3`                    |
+| `storage.py`        | `book_dir`, `remove_tree`: UUID-only, containment-checked paths        |
+| `store.py`          | `Store`: SQLite access, state machine, atomic claim                    |
+| `worker.py`         | `run_pending`, `main` loop                                             |
+| `static/index.html` | UI, see [DESIGN.md](DESIGN.md)                                         |
+
+## Configuration
+
+| Env var                | Default         | Field                                             |
+| ---------------------- | --------------- | ------------------------------------------------- |
+| `M2A_DATA_DIR`         | `data`          | `data_dir`                                        |
+| `M2A_MODEL_DIR`        | `models/kokoro` | `model_dir`                                       |
+| `M2A_MAX_UPLOAD_BYTES` | `10485760`      | `max_upload_bytes`                                |
+| `M2A_CHUNK_MAX_CHARS`  | `400`           | `chunk_max_chars`                                 |
+| `M2A_SILENCE_MS`       | `350`           | `silence_ms`                                      |
+| `M2A_POLL_SECONDS`     | `1.0`           | `poll_seconds`                                    |
+| `M2A_FAKE_TTS`         | unset           | read in `tts.load_engine`; `1` = sine-tone engine |
+
+Fixed, not env-driven: FFmpeg timeout 1800 s (`ffmpeg_timeout_s`), probe timeout 60 s,
+speed range 0.8–1.2. Template: `.env.example`.
+
+## Data model
+
+`store.py` creates tables on start (`CREATE TABLE IF NOT EXISTS`, no migrations). Foreign keys ON.
+
+- `books`: `id`, `title`, `original_filename`, `chapter_count`, `created_at`.
+- `jobs`: `id`, `book_id` (cascade delete), `status`, `voice_id`, `language`, `speed`,
+  `bitrate_kbps`, `include_code_blocks`, `total_chunks`, `completed_chunks`, `progress_percent`,
+  `current_chapter`, `error_code`, `error_message`, `created_at`, `started_at`, `completed_at`.
+- No chapter table. Book status is derived from the latest job (`queued`, `processing`,
+  `completed`, `failed`), else `uploaded`.
+- Every operation opens a fresh connection with a short `BEGIN IMMEDIATE` transaction (api and worker
+  are separate processes). No transaction is held during TTS.
+
+## Job lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> queued
+    queued --> processing
+    queued --> cancelled
+    processing --> completed
+    processing --> failed
+    processing --> cancelled
+```
+
+- Transitions validated in `Store.transition`; anything else → `INVALID_TRANSITION` (409).
+- Claim: single `UPDATE … WHERE status='queued' … RETURNING` on the oldest queued job.
+- Create or delete while a job is queued/processing for the book → `JOB_ACTIVE` (409).
+  Retry = new job.
+- Progress: `completed*100//total`, capped at 99 until the `completed` transition sets 100;
+  never decreases; only written while `processing`.
+- Worker start: `fail_stale()` marks `processing` jobs `failed` / `WORKER_RESTARTED`.
+- Failure: `AppError` → `failed` with its code and message; any other exception → `INTERNAL`,
+  generic message, stack trace in server log only.
+- Cancel: status set to `cancelled` via API; worker checks before each chunk and before publish.
+- `finally` always removes `data/temp/{job_id}` and `audiobook.mp3.part`.
+
+## Conversion pipeline
+
+`worker._convert`:
+
+1. Read `uploads/{book_id}/source.md`; `parse_markdown(include_code=job.include_code_blocks)`.
+2. No chapters → `NO_TEXT`.
+3. `chunk_chapters(chapters, chunk_max_chars)`.
+4. Per chunk, in order: cancel check → `engine.synthesize(text, voice, speed, language)` →
+   `WavSink.write` → `WavSink.silence(silence_ms)` → `set_progress`.
+5. `encode_mp3` (FFmpeg, argument list, timeout) to `audiobook.mp3.part`; `probe_mp3` validates.
+6. Cancel check; `os.replace` to `audiobook.mp3` (atomic); transition to `completed`.
+
+The model is loaded once per worker process (`load_engine` in `main`).
+
+## API
+
+Router prefix `/api/v1`. Errors: `{"error": {"code", "message"}}` via handlers for `AppError` and
+request-validation errors. Book and job ids are UUIDs.
+
+| Method   | Path                       | Success   |
+| -------- | -------------------------- | --------- |
+| `GET`    | `/health`                  | 200       |
+| `POST`   | `/books/upload`            | 201       |
+| `GET`    | `/books`                   | 200       |
+| `GET`    | `/books/{book_id}`         | 200       |
+| `DELETE` | `/books/{book_id}`         | 204       |
+| `GET`    | `/voices`                  | 200       |
+| `POST`   | `/books/{book_id}/convert` | 202       |
+| `GET`    | `/jobs/{job_id}`           | 200       |
+| `POST`   | `/jobs/{job_id}/cancel`    | 200       |
+| `GET`    | `/books/{book_id}/audio`   | 200 (MP3) |
+
+## Storage
+
+```text
+data/uploads/{book_id}/source.md
+data/audio/{book_id}/audiobook.mp3        (+ audiobook.mp3.part while publishing)
+data/temp/{job_id}/book.wav               (removed after each job)
+data/mark2audio.db
+models/kokoro/{kokoro-v1.0.onnx, voices-v1.0.bin}   (mounted, outside the image)
+```
+
+`storage.book_dir` accepts only UUIDs, resolves the path, and requires it to be a direct child of
+the root (blocks traversal and symlink escape).
+
+## Runtime
+
+- `backend/Dockerfile`: `python:3.12.7-slim-bookworm`, FFmpeg, user uid 1000, `pip install ".[tts]"`.
+- `docker-compose.yml`: services `api` (port `127.0.0.1:8000`, health check on `/api/v1/health`)
+  and `worker` (waits for api healthy, no health check of its own). Volumes `./data:/data`,
+  `./models/kokoro:/models:ro`; optional `.env`; `restart: unless-stopped`.
+- Native: `make api`, `make worker`, see `Makefile`.
+- Image and compose have not been built or run yet.
+
+## Tests
+
+`backend/tests/`: `test_api`, `test_audio`, `test_chunker`, `test_parser`, `test_store`,
+`test_worker`, `test_smoke_kokoro` (runs only when model files exist). `conftest.py` fixtures:
+`settings` (tmp dirs, `chunk_max_chars=40`, `silence_ms=50`), `store`, `engine` (`FakeTts`).
+Coverage gate 80% (`pyproject.toml`), `tts_kokoro.py` omitted.
+
+## Technical rules
+
+These rules are mandatory for implementation and code review unless a decision record in
+[DECISION.md](DECISION.md) explicitly changes them. Git workflow and sprint flow:
+[CLAUDE.md](../CLAUDE.md#21-project-mark2audio). UI rules: [DESIGN.md](DESIGN.md#rules).
+
+### Architecture and scope
 
 1. Build a modular monolith; do not split the MVP into microservices.
 2. Runtime services are limited to frontend, API, and worker.
@@ -12,7 +164,7 @@ These rules are mandatory for implementation and code review unless a decision r
 6. Runtime conversion must not require outbound network access.
 7. Keep model files and user data outside immutable container images.
 
-## 2. Python and dependency management
+### Python and dependency management
 
 1. Use Python 3.12 or newer, pinned to a tested version in CI and Docker.
 2. Use `uv` for dependency and environment management.
@@ -24,7 +176,7 @@ These rules are mandatory for implementation and code review unless a decision r
 8. Use timezone-aware UTC timestamps.
 9. Do not perform blocking TTS or FFmpeg work inside FastAPI request handlers.
 
-## 3. Code quality
+### Code quality
 
 Required checks:
 
@@ -45,7 +197,7 @@ Guidelines:
 6. Add docstrings to public modules/classes/functions where they clarify contracts.
 7. Avoid broad `# type: ignore`; explain and narrow any suppression.
 
-## 4. API rules
+### API rules
 
 1. Version all endpoints under `/api/v1`.
 2. Validate request and response data with Pydantic schemas.
@@ -58,7 +210,7 @@ Guidelines:
 9. Use correct content types for MP3 and ZIP responses.
 10. Keep long-running work in the worker, not the API process.
 
-## 5. File and path safety
+### File and path safety
 
 1. Generate storage names server-side.
 2. Treat original filenames as display metadata only.
@@ -71,7 +223,7 @@ Guidelines:
 9. Clean temporary directories on success, failure, cancellation, and stale-job recovery.
 10. Apply configurable retention for uploaded source and generated output.
 
-## 6. Markdown processing rules
+### Markdown processing rules
 
 1. Parse Markdown as data; never render or execute raw HTML in a privileged context.
 2. Preserve source reading order.
@@ -84,7 +236,7 @@ Guidelines:
 9. Handle empty documents and empty chapters explicitly.
 10. Maintain fixtures for supported Markdown constructs and malformed input.
 
-## 7. TTS and audio rules
+### TTS and audio rules
 
 1. Define a TTS engine protocol/interface independent of Kokoro.
 2. Load the model once per worker process, not once per chunk.
@@ -99,7 +251,7 @@ Guidelines:
 11. Never mark a job completed before final output is safely published.
 12. Keep temporary WAV files out of the final library unless explicitly requested.
 
-## 8. Worker and job rules
+### Worker and job rules
 
 1. Job state transitions must be explicit and validated.
 2. Claim queued jobs atomically.
@@ -112,20 +264,7 @@ Guidelines:
 9. Retrying creates a new job for MVP; do not mutate terminal jobs back to queued.
 10. Cancellation must be checked between chunks and clean temporary data.
 
-## 9. Frontend rules
-
-1. Use TypeScript strict mode.
-2. Keep API calls in a service/client layer.
-3. Model API responses with explicit types.
-4. Show upload and conversion states separately.
-5. Poll only while a job is active and stop at terminal state.
-6. Disable duplicate conversion actions for an active job.
-7. Display actionable validation and failure messages.
-8. Use semantic HTML and accessible labels.
-9. Do not expose internal paths or stack traces.
-10. Do not treat browser-side state as authoritative for job completion.
-
-## 10. Docker and operations
+### Docker and operations
 
 1. Use non-root container users where feasible.
 2. Pin base image versions; avoid floating production tags.
@@ -138,17 +277,7 @@ Guidelines:
 9. Document CPU and memory requirements.
 10. Provide a model download/setup step separate from normal offline startup.
 
-## 11. Git workflow
-
-1. Use GitFlow-style branches: `feature/*` → `develop` → `main`.
-2. Protect `main` and `develop`; do not push feature work directly to either.
-3. Use pull requests for feature integration.
-4. Keep commits focused and conventional (e.g. `feat:`, `fix:`, `test:`, `docs:`).
-5. Do not use `git add -A` blindly; inspect `git status` and stage intentional paths.
-6. Require quality checks and review before merge.
-7. Keep generated model files, audio, databases, and user uploads out of Git.
-
-## 12. Testing rules
+### Testing rules
 
 Required test categories:
 
@@ -165,7 +294,7 @@ Required test categories:
 
 Tests must not depend on network access. Use deterministic fixtures and fake TTS output for normal CI.
 
-## 13. Definition of done
+### Definition of done
 
 A change is done only when:
 
