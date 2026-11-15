@@ -1,5 +1,5 @@
 .PHONY: install hooks api worker test lint typecheck format up down logs model
-install:   ; cd backend && uv sync -q --extra dev --extra tts
+install:   ; cd backend && uv sync -q --extra tts
 hooks:     ; uv run --project backend pre-commit install --install-hooks
 api:       ; cd backend && M2A_DATA_DIR=../data M2A_MODEL_DIR=../models/kokoro uv run uvicorn app.main:create --factory --reload --port 8000
 worker:    ; cd backend && M2A_DATA_DIR=../data M2A_MODEL_DIR=../models/kokoro uv run python -m app.worker
