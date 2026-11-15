@@ -18,7 +18,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T14 Dev tools in `[dependency-groups]`, `httpx2` replaces `httpx`
 - [x] T15 Pre-commit v2: hygiene, gitleaks, codespell, prettier, commit-msg, pytest on push
 - [x] T16 Format pass from the new hooks
-- [ ] T17 Ruff rule set (D, PL, S, N, …), fix findings, drop bandit, tool tables in pyproject
+- [x] T17 Ruff rule set (D, PL, S, N, …), fix findings, drop bandit, tool tables in pyproject
 - [x] T18 CI hardening, `make ci` with `act`
 - [x] T19 Opt-in `make trivy` and `make sonar`
 - [ ] T20 Review sprint diff (CLAUDE.md section 18), fix findings

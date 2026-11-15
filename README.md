@@ -22,7 +22,7 @@ Layout: [ARCHITECTURE.md](docs/ARCHITECTURE.md#storage). Back up by copying `dat
 
 ## Checks
 
-`make test lint typecheck` (pytest with 80% coverage gate, ruff, strict mypy, bandit).
+`make test lint typecheck` (pytest with 80% coverage gate, ruff with security rules, strict mypy).
 A real-model smoke test runs automatically when model files exist.
 
 Local CI: `make ci` (needs [`act`](https://github.com/nektos/act)). Opt-in scans, off by default:

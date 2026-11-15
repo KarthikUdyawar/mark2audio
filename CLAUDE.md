@@ -689,7 +689,7 @@ Each fact lives in exactly one document. Others link to it, never copy it.
 
 ### Author rules
 
-- Python 3.12, `uv`, Ruff (line length 100), strict mypy, pytest with 80% coverage gate, Bandit.
+- Python 3.12, `uv`, Ruff (line length 100), strict mypy, pytest with 80% coverage gate, ruff `S` rules for security ([D-014](docs/DECISION.md)).
 - Stdlib `sqlite3` only; short `BEGIN IMMEDIATE` transactions on fresh connections; never hold one during TTS.
 - Domain failures raise `AppError(code, message, status)`; no bare `except`.
 - Never log document text. Never return absolute paths.

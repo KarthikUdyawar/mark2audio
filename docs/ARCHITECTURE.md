@@ -151,7 +151,7 @@ Coverage gate 80% (`pyproject.toml`), `tts_kokoro.py` omitted.
 
 Gates: `make lint typecheck test`. `make lint` runs every pre-commit hook except mypy
 (`.pre-commit-config.yaml`: hygiene, gitleaks, codespell, pyproject-fmt, ruff, uv-lock,
-prettier; bandit until [D-014](DECISION.md)) and **fixes files**; CI fails if it changed any.
+prettier; ruff `S` rules replace bandit, [D-014](DECISION.md)) and **fixes files**; CI fails if it changed any.
 Git hooks: checks on commit, commit-message format, pytest on push; `main` and `develop`
 are blocked. CI (`.github/workflows/ci.yml`) calls the same make targets; run it locally with
 `make ci` (`act`). The real-model smoke test is skipped in CI. Dependencies are locked in

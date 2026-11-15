@@ -108,3 +108,14 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
   `image: mark2audio:local` so scanners get one stable name.
 - Consequence: scans run only when asked. Sonar settings: `backend/sonar-project.properties`;
   the token exists only in `.env.tools`.
+
+## D-014 — Ruff rule set replaces bandit
+
+- Date: 2026-11-15 · Status: accepted · Supersedes the bandit part of D-012
+- Context: ruff `S` rules (flake8-bandit) cover the checks bandit ran, in the same pass.
+- Decision: `select = B D E F I N PL RUF S SIM UP`; `D1` (missing docstrings) is ignored because
+  docstrings are required only where they clarify a contract. Per-file ignores, each with a
+  reason comment, live in `backend/pyproject.toml`. bandit is removed from the dev group and
+  `make lint`; `# nosec` comments are removed.
+- Consequence: the "bandit or equivalent" rule in [ARCHITECTURE.md](ARCHITECTURE.md) is met by
+  ruff `S`. Suppressions use `# noqa` or per-file ignores, never `# nosec`.
