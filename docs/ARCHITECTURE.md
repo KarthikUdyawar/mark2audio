@@ -148,6 +148,11 @@ the root (blocks traversal and symlink escape).
 `settings` (tmp dirs, `chunk_max_chars=40`, `silence_ms=50`), `store`, `engine` (`FakeTts`).
 Coverage gate 80% (`pyproject.toml`), `tts_kokoro.py` omitted.
 
+Gates (`make lint typecheck test`) are the same locally, in pre-commit/pre-push
+(`.pre-commit-config.yaml`) and in CI (`.github/workflows/ci.yml`). The real-model smoke test
+is skipped in CI. Dependencies are locked in `backend/uv.lock`; Python 3.12
+(`backend/.python-version`).
+
 ## Technical rules
 
 These rules are mandatory for implementation and code review unless a decision record in
