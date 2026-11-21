@@ -167,7 +167,7 @@ the root (blocks traversal and symlink escape).
 ## Tests
 
 `backend/tests/`: `test_api`, `test_audio`, `test_chunker`, `test_parser`, `test_store`,
-`test_worker`, `test_kokoro_adapter` (stub model), `test_smoke_kokoro` (real model and
+`test_worker`, `test_main`, `test_tts`, `test_kokoro_adapter` (stub model), `test_smoke_kokoro` (real model and
 FFmpeg, runs only when both exist; `make smoke`). `conftest.py` fixtures:
 `settings` (tmp dirs, `chunk_max_chars=40`, `silence_ms=50`), `store`, `engine` (`FakeTts`).
 Coverage gate 80% (`pyproject.toml`), `tts_kokoro.py` omitted.
@@ -179,7 +179,7 @@ Git hooks: checks on commit, commit-message format, pytest on push; `main` and `
 are blocked. CI (`.github/workflows/ci.yml`) calls the same make targets; run it locally with
 `make ci` (`act`). The real-model smoke test is skipped in CI. Dependencies are locked in
 `backend/uv.lock`, dev tools sit in the `dev` dependency group, Python 3.12
-(`backend/.python-version`). Decisions: [D-012](DECISION.md).
+(`backend/.python-version`). Decisions: [D-012](DECISION.md), [D-019](DECISION.md) (Actions pinned by SHA).
 
 ## Optional tooling (off by default)
 

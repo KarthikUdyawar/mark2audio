@@ -58,15 +58,8 @@ Per-sprint `PRD.md` and `TODO.md` live in `sprints/SN/`.
 
 ## Unscheduled candidates
 
-Input for S1 planning, in rough priority order.
-
-### **Verify the baseline**
-
-- Run the Kokoro adapter against the real model; fix assumptions.
-- `test_smoke_kokoro` skips even when `models/kokoro/` has both files: find out why, make it run.
-- Record model artifact source, revision, license and sha256 (`make model` URLs are from memory).
-- Build and run Docker Compose; test conversion with outbound network disabled.
-- Bind-mount permissions (container uid 1000).
+Input for S2 planning, in rough priority order. S1 verified the baseline (real model, Docker,
+offline), covered `app/main.py` and the worker, and pinned Actions by SHA.
 
 ### **Hardening**
 
@@ -75,8 +68,9 @@ Input for S1 planning, in rough priority order.
 - Malformed Markdown, very long documents, disk-full, FFmpeg failure, restart during conversion.
 - Troubleshooting guide and known limitations.
 - Worker health check (technical rule: Docker and operations, item 3; none exists yet).
-- Tests for `app/main.py` (0% covered) and the uncovered worker paths (81%).
-- Pin GitHub Actions by commit SHA, as pre-commit hooks already are.
+- Trace the `phonemizer words count mismatch` warnings in the worker log.
+- Evaluate model release `model-files-v1.1` (different `kokoro-v1.0.onnx`, untested, see D-017).
+- Enable the 26 hidden non-English voices after verifying their espeak language codes.
 
 ### **P1**
 
