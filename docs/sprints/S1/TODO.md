@@ -13,7 +13,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T8 Replace "unverified" text in ARCHITECTURE, ROADMAP FR-04/05 and the `tts_kokoro.py` docstring; record measured speed and memory
 - [x] T9 `make up`: build, run, convert through the stack; fix what breaks
 - [x] T10 Dockerfile and `uv.lock`: decide; D-018 only if needed
-- [ ] T11 `docker-compose.offline.yml`; prove offline conversion and a failing outbound connect
+- [x] T11 `docker-compose.offline.yml`; prove offline conversion and a failing outbound connect
 - [ ] T12 README troubleshooting and bind-mount permissions checked against real behavior
 - [ ] T13 Test for `app/main.py` (test first)
 - [ ] T14 Worker coverage gaps from `--cov-report=term-missing`

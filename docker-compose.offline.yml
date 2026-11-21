@@ -1,0 +1,6 @@
+# Offline proof: the worker gets no network at all. Use together with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.offline.yml up -d --force-recreate worker
+# Back to normal: docker compose up -d --force-recreate worker
+services:
+  worker:
+    network_mode: none

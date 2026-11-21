@@ -158,6 +158,11 @@ the root (blocks traversal and symlink escape).
 - Native: `make api`, `make worker`, see `Makefile`.
 - Image built and run with Compose on 2026-11-21: a real-model conversion completes and the
   container writes `data/` through the bind mount (host and container uid are both 1000).
+- Offline proof: `docker-compose.offline.yml` gives the worker `network_mode: none`. Run
+  `docker compose -f docker-compose.yml -f docker-compose.offline.yml up -d --force-recreate worker`.
+  On 2026-11-21 a worker with only a loopback interface, failing outbound connects and failing DNS
+  converted a book with the real model. Restore with
+  `docker compose up -d --force-recreate worker`.
 
 ## Tests
 
