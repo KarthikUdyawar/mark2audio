@@ -164,3 +164,18 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
 - Consequence: the repository is private ([D-008](#d-008--private-repository)); check voice
   terms before any distribution. Moving to v1.1 or another model needs a new decision and a new
   smoke run.
+
+## D-018 — Docker image installs from `uv.lock`
+
+- Date: 2026-11-21 · Status: accepted · Completes [D-010](#d-010--locked-dependencies-one-set-of-gate-commands)
+  for the image
+- Context: the image was built with `pip install ".[tts]"`, which resolves fresh versions. S1
+  found it shipped fastapi 0.165.0, numpy 2.5.5, pydantic 2.14.4 and python-multipart 0.0.34
+  against 0.163.0, 2.5.4, 2.14.3 and 0.0.33 in `backend/uv.lock`. The tested set is the lock, not
+  what the image ran.
+- Decision: the Dockerfile copies the `uv` binary from the pinned `ghcr.io/astral-sh/uv:0.13.6`
+  image (the version CI uses) and runs `uv sync --locked --no-dev --extra tts
+--no-install-project` into `/opt/venv`; the app source is copied afterwards. The build fails if
+  `uv.lock` is stale.
+- Consequence: image dependencies equal the lock. The `uv` binary stays in the image. Change the
+  `uv` version in the Dockerfile and `ci.yml` together. Dependency updates go through `uv lock`.
