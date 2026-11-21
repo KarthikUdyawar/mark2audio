@@ -146,3 +146,21 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
   so `make ci` before opening the PR remains the pre-merge gate. Merge commits made on GitHub
   skip the local commit-msg hook, so the PR title carries the format. `v0.0.0` stays on the
   `develop` merge commit `b0aa8fe`, because a pushed tag does not move.
+
+## D-017 — Model provenance, Kokoro verified locally
+
+- Date: 2026-11-21 · Status: accepted · Supersedes the "unverified with real model" status of D-002
+- Context: S1 ran the Kokoro adapter against the real model (smoke test, adapter audit, speed and
+  memory measured, see [ARCHITECTURE.md](ARCHITECTURE.md)). `make model` URLs were written from
+  memory.
+- Decision: model files come from the GitHub release `model-files-v1.0` of
+  `thewh1teagle/kokoro-onnx`: `kokoro-v1.0.onnx` and `voices-v1.0.bin`. Their URLs and sha256 are
+  pinned in the `Makefile` (the only place hashes are stored), and `make model` fails on a
+  mismatch. Release `model-files-v1.1` also exists, ships a different `kokoro-v1.0.onnx` (other
+  bytes and size), and is not verified. GitHub published no digest for the v1.0 onnx; its pin is
+  the hash of the file the smoke test passed on, with a size equal to the upstream asset.
+- Licenses, as stated in the upstream README on 2026-11-21: `kokoro-onnx` MIT, Kokoro model
+  Apache 2.0. Per-voice terms and the Kokoro-82M model card were not checked.
+- Consequence: the repository is private ([D-008](#d-008--private-repository)); check voice
+  terms before any distribution. Moving to v1.1 or another model needs a new decision and a new
+  smoke run.
