@@ -10,7 +10,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T5 Real-time factor ~0.2, peak RSS ~1.3 GB, chunk joins and silence checked by ear
 - [x] T6 Confirm model URLs, revision, license and sha256 upstream; D-017
 - [x] T7 `make model`: pinned URLs, sha256 variables, `sha256sum -c`
-- [ ] T8 Replace "unverified" text in ARCHITECTURE, ROADMAP FR-04/05 and the `tts_kokoro.py` docstring; record measured speed and memory
+- [x] T8 Replace "unverified" text in ARCHITECTURE, ROADMAP FR-04/05 and the `tts_kokoro.py` docstring; record measured speed and memory
 - [ ] T9 `make up`: build, run, convert through the stack; fix what breaks
 - [ ] T10 Dockerfile and `uv.lock`: decide; D-018 only if needed
 - [ ] T11 `docker-compose.offline.yml`; prove offline conversion and a failing outbound connect

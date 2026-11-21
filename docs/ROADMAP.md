@@ -30,15 +30,15 @@ download.
 ## Requirements status
 
 Baseline MVP requirements (full acceptance criteria: `git show cd46e5b:docs/PRD.md`). Status as
-of 2026-11-15. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
+of 2026-11-21. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 | ID    | Requirement                                                     | Pri | Status                                |
 | ----- | --------------------------------------------------------------- | --- | ------------------------------------- |
 | FR-01 | Markdown upload, size/extension/UTF-8 validation, UUID storage  | P0  | Built                                 |
 | FR-02 | Parsing and normalization (links as text, code skipped, images) | P0  | Partial: no image alt-text option     |
 | FR-03 | Chapter detection from headings, intro, no-heading docs         | P0  | Built, heading level not configurable |
-| FR-04 | Voice catalogue from the installed model                        | P0  | Built, real model unverified          |
-| FR-05 | Local TTS, chunking, speed 0.8–1.2, progress                    | P0  | Built, real model unverified          |
+| FR-04 | Voice catalogue from the installed model                        | P0  | Built, verified with real model       |
+| FR-05 | Local TTS, chunking, speed 0.8–1.2, progress                    | P0  | Built, verified with real model       |
 | FR-06 | FFmpeg MP3 at 128/192/256 kbps, title metadata, probe           | P0  | Built                                 |
 | FR-07 | Job lifecycle, monotonic progress, safe errors                  | P0  | Built                                 |
 | FR-08 | Library, detail, delete                                         | P0  | Partial: no duration shown            |

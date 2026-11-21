@@ -28,7 +28,7 @@ All under `backend/app/`.
 | `parser.py`         | `parse_markdown(text, include_code)` → `Chapter` list (markdown-it-py) |
 | `chunker.py`        | `chunk_chapters(chapters, max_chars)` → `Chunk` list                   |
 | `tts.py`            | `TtsEngine` protocol, `FakeTts`, `load_engine`, `SPEED_RANGE`          |
-| `tts_kokoro.py`     | `KokoroTts` adapter. Not yet run against real model files              |
+| `tts_kokoro.py`     | `KokoroTts` adapter, verified with the real model (D-017)              |
 | `encoder.py`        | `WavSink`, `ffmpeg_args`, `encode_mp3`, `probe_mp3`                    |
 | `storage.py`        | `book_dir`, `remove_tree`: UUID-only, containment-checked paths        |
 | `store.py`          | `Store`: SQLite access, state machine, atomic claim                    |
@@ -101,6 +101,19 @@ stateDiagram-v2
 
 The model is loaded once per worker process (`load_engine` in `main`).
 
+## Measured performance
+
+CPU only, 16 threads, 14 GiB RAM, Kokoro v1.0 through `kokoro-onnx` 0.6.1, run in a plain
+Python process (not Docker), 2026-11-21:
+
+- Speed: real-time factor about 0.2 (wall time is about 0.2 × audio length) for chunks of 400
+  characters or more; a 100-character chunk measured 0.36 including first-call warmup. A
+  one-hour book takes about 12 minutes.
+- Memory: peak RSS about 1.3 GB in the process that holds the model. Only the worker loads it.
+- Chunk size: chunks up to 1600 characters synthesize without truncation, because `kokoro-onnx`
+  splits long text itself (510 phonemes). `M2A_CHUNK_MAX_CHARS` therefore only bounds memory and
+  progress granularity.
+
 ## API
 
 Router prefix `/api/v1`. Errors: `{"error": {"code", "message"}}` via handlers for `AppError` and
@@ -145,7 +158,8 @@ the root (blocks traversal and symlink escape).
 ## Tests
 
 `backend/tests/`: `test_api`, `test_audio`, `test_chunker`, `test_parser`, `test_store`,
-`test_worker`, `test_smoke_kokoro` (runs only when model files exist). `conftest.py` fixtures:
+`test_worker`, `test_kokoro_adapter` (stub model), `test_smoke_kokoro` (real model and
+FFmpeg, runs only when both exist; `make smoke`). `conftest.py` fixtures:
 `settings` (tmp dirs, `chunk_max_chars=40`, `silence_ms=50`), `store`, `engine` (`FakeTts`).
 Coverage gate 80% (`pyproject.toml`), `tts_kokoro.py` omitted.
 
