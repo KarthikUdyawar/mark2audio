@@ -15,7 +15,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T10 Dockerfile and `uv.lock`: decide; D-018 only if needed
 - [x] T11 `docker-compose.offline.yml`; prove offline conversion and a failing outbound connect
 - [x] T12 README troubleshooting and bind-mount permissions checked against real behavior
-- [ ] T13 Test for `app/main.py` (test first)
+- [x] T13 Test for `app/main.py` (test first)
 - [ ] T14 Worker coverage gaps from `--cov-report=term-missing`
 - [ ] T15 Pin GitHub Actions by commit SHA (confirm peeled commit with `^{}`)
 - [ ] T16 Review sprint diff (CLAUDE.md section 18), fix findings
