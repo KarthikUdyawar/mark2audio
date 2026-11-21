@@ -17,7 +17,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T12 README troubleshooting and bind-mount permissions checked against real behavior
 - [x] T13 Test for `app/main.py` (test first)
 - [x] T14 Worker coverage gaps from `--cov-report=term-missing`
-- [ ] T15 Pin GitHub Actions by commit SHA (confirm peeled commit with `^{}`)
+- [x] T15 Pin GitHub Actions by commit SHA (confirm peeled commit with `^{}`)
 - [ ] T16 Review sprint diff (CLAUDE.md section 18), fix findings
 - [ ] T17 PR to `develop`, `release/v0.1.0` PR to `main`, tag `v0.1.0`, handoff
 

@@ -179,3 +179,15 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
   `uv.lock` is stale.
 - Consequence: image dependencies equal the lock. The `uv` binary stays in the image. Change the
   `uv` version in the Dockerfile and `ci.yml` together. Dependency updates go through `uv lock`.
+
+## D-019 — GitHub Actions pinned by commit SHA
+
+- Date: 2026-11-21 · Status: accepted
+- Context: `ci.yml` used floating tags (`checkout@v4`, `setup-uv@v6`, `cache@v4`), so upstream
+  could change the code CI runs without any change here. Pre-commit hooks were already pinned.
+- Decision: every `uses:` in `.github/workflows` is pinned to a full commit SHA with the version
+  in a trailing comment. The SHA must be a commit: take the `^{}` line of
+  `git ls-remote <repo> 'refs/tags/<tag>' 'refs/tags/<tag>^{}'` when it exists, else the plain
+  line (a lightweight tag). Pinned in S1: `checkout` v4.4.0, `setup-uv` v6.8.0, `cache` v4.3.0.
+- Consequence: updates are manual, no Dependabot. The `uv` version in `ci.yml` and the Dockerfile
+  still changes together ([D-018](#d-018--docker-image-installs-from-uvlock)).
