@@ -8,8 +8,8 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T3 Adapter audit against `kokoro-onnx` 0.6.1: no defects; call contract locked by a stub test
 - [x] T4 Chunk size: `kokoro-onnx` splits phonemes itself (max 510), no truncation up to 1600 chars; 400 kept
 - [x] T5 Real-time factor ~0.2, peak RSS ~1.3 GB, chunk joins and silence checked by ear
-- [ ] T6 Confirm model URLs, revision, license and sha256 upstream; D-017
-- [ ] T7 `make model`: pinned URLs, sha256 variables, `sha256sum -c`
+- [x] T6 Confirm model URLs, revision, license and sha256 upstream; D-017
+- [x] T7 `make model`: pinned URLs, sha256 variables, `sha256sum -c`
 - [ ] T8 Replace "unverified" text in ARCHITECTURE, ROADMAP FR-04/05 and the `tts_kokoro.py` docstring; record measured speed and memory
 - [ ] T9 `make up`: build, run, convert through the stack; fix what breaks
 - [ ] T10 Dockerfile and `uv.lock`: decide; D-018 only if needed
