@@ -129,3 +129,20 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
   requests to `main` and `develop`. The pre-merge gate is `make ci` (`act`) plus `make check`.
 - Consequence: a feature branch gets no remote CI until it is merged into `develop` or a PR is
   opened. Run `make ci` before every merge.
+
+## D-016 — Sprint merge flow by pull request
+
+- Date: 2026-11-21 · Status: accepted · Supersedes the merge wording in D-007 and D-015
+- Context: S0 was released through GitHub pull requests (#1 into `develop`, #2 into `main`), not
+  local merges. After the release, `main` and `develop` had identical trees, so a back-merge
+  would only add a merge commit that `main` lacks, on every release.
+- Decision: a sprint merges `feature/*` → `develop` by pull request, then `release/v0.N.0` →
+  `main` by pull request. Both use a merge commit, never squash or rebase. Tag `v0.N.0` on the
+  merge commit on `main`. Back-merge `main` → `develop` only when `main` has content `develop`
+  lacks (for example a hotfix). PR title is `type: summary` with the same types as commits;
+  labels: `chore`, `documentation`, `ci`, `sprint:Sn`, `no-behavior-change`; release PRs get
+  `release` and `v0.N.0`.
+- Consequence: CI runs on every PR ([D-015](#d-015--ci-runs-on-develop-main-release-and-pull-requests)),
+  so `make ci` before opening the PR remains the pre-merge gate. Merge commits made on GitHub
+  skip the local commit-msg hook, so the PR title carries the format. `v0.0.0` stays on the
+  `develop` merge commit `b0aa8fe`, because a pushed tag does not move.

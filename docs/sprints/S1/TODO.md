@@ -2,8 +2,8 @@
 
 One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 
-- [ ] T0 Sprint S1 PRD and TODO
-- [ ] T1 D-016 merge flow; fix CLAUDE.md step 6; tick S0 T21; ROADMAP S0 done, S1 planned
+- [x] T0 Sprint S1 PRD and TODO
+- [x] T1 D-016 merge flow; fix CLAUDE.md step 6; tick S0 T21; ROADMAP S0 done, S1 planned
 - [ ] T2 Smoke test: repo-root model path, both files, synth, encode and probe; `make smoke`
 - [ ] T3 Adapter audit against `kokoro-onnx` 0.6.1: failing stub-Kokoro test per defect, then fix
 - [ ] T4 Chunk size vs real model input limit: measure, adjust default or chunker (test first)

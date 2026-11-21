@@ -669,9 +669,11 @@ Each fact lives in exactly one document. Others link to it, never copy it.
    commit-message format on commit-msg, tests on push; commits to `main`/`develop` are
    blocked. `make lint` auto-fixes files. Before each commit: `make test lint typecheck` green.
 5. Sprint end: review the sprint diff against ARCHITECTURE.md and section 18.
-6. Merge `feature/*` → `develop`, cut `release/v0.N.0` → `main`, tag `v0.N.0`, merge `main` back
-   to `develop`. Merge commits pass the commit-msg hook: `chore: release v0.N.0`,
-   `chore: merge sprint SN into develop`.
+6. Open a PR `feature/*` → `develop`, then cut `release/v0.N.0` and open a PR → `main`. Both
+   merge with a merge commit (no squash), never locally ([D-016](docs/DECISION.md)). Tag
+   `v0.N.0` on the `main` merge commit. Merge `main` back to `develop` only if `main` has
+   content `develop` lacks. PR title `type: summary`; labels `chore`, `documentation`, `ci`,
+   `sprint:Sn`, `no-behavior-change`; release PRs also `release` and `v0.N.0`.
 7. Write a handoff note for the next session.
 
 `main` and `develop` are never committed to directly (the free GitHub plan cannot enforce this).

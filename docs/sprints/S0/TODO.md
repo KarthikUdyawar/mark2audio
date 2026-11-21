@@ -24,4 +24,6 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T22 `make lint` runs all pre-commit hooks, as the docs state
 - [x] T23 Map `docs/STRUCTURE.md` in the CLAUDE.md documentation map
 - [x] T20 Review sprint diff (CLAUDE.md section 18), fix findings (`41be831`, `4fd98e0`, `3279ac0`, `8d8d4ed`, `55ea393`)
-- [ ] T21 Merge to `develop`, `release/v0.0.0` → `main`, tag `v0.0.0`, back-merge, handoff
+- [x] T21 PR #1 to `develop` (`b0aa8fe`), PR #2 `release/v0.0.0` → `main` (`678060f`), tag
+      `v0.0.0`, handoff. Back-merge skipped, trees identical
+      ([D-016](../../DECISION.md#d-016--sprint-merge-flow-by-pull-request))
