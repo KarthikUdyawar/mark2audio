@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup install hooks api worker test lint typecheck format check \
+.PHONY: help setup install hooks api worker test smoke lint typecheck format check \
         up down logs ci model trivy sonar tree status clean
 
 # ---------------------------------------------------------------------------
@@ -79,6 +79,9 @@ typecheck: ## run strict MyPy type checking
 
 test: ## run pytest
 	cd $(BACKEND_DIR) && uv run pytest
+
+smoke: ## real-model smoke test (needs make model and ffmpeg); shows skip reason
+	cd $(BACKEND_DIR) && uv run pytest tests/test_smoke_kokoro.py -rs --no-cov
 
 check: lint typecheck test ## complete local quality gate
 
