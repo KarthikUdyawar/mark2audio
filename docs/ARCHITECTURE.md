@@ -110,6 +110,8 @@ Python process (not Docker), 2026-11-21:
   characters or more; a 100-character chunk measured 0.36 including first-call warmup. A
   one-hour book takes about 12 minutes.
 - Memory: peak RSS about 1.3 GB in the process that holds the model. Only the worker loads it.
+- In Docker (same machine): real-time factor about 0.24 (a 3.6-minute book in 52 s); worker
+  peak about 0.95 GB, sampled once per second with `docker stats`.
 - Chunk size: chunks up to 1600 characters synthesize without truncation, because `kokoro-onnx`
   splits long text itself (510 phonemes). `M2A_CHUNK_MAX_CHARS` therefore only bounds memory and
   progress granularity.
@@ -147,13 +149,15 @@ the root (blocks traversal and symlink escape).
 
 ## Runtime
 
-- `backend/Dockerfile`: `python:3.12.7-slim-bookworm`, FFmpeg, user uid 1000, `pip install ".[tts]"`.
+- `backend/Dockerfile`: `python:3.12.7-slim-bookworm`, FFmpeg, user uid 1000, dependencies from
+  `uv.lock` via pinned `uv` 0.13.6 ([D-018](DECISION.md)).
 - `docker-compose.yml`: services `api` (port `127.0.0.1:8000`, health check on `/api/v1/health`)
   and `worker` (waits for api healthy, no health check of its own). Volumes `./data:/data`,
   `./models/kokoro:/models:ro`; optional `.env`; `environment` pins `M2A_DATA_DIR=/data` and `M2A_MODEL_DIR=/models`
   (wins over `.env`); `restart: unless-stopped`.
 - Native: `make api`, `make worker`, see `Makefile`.
-- Image and compose have not been built or run yet.
+- Image built and run with Compose on 2026-11-21: a real-model conversion completes and the
+  container writes `data/` through the bind mount (host and container uid are both 1000).
 
 ## Tests
 

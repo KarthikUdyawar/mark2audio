@@ -11,7 +11,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T6 Confirm model URLs, revision, license and sha256 upstream; D-017
 - [x] T7 `make model`: pinned URLs, sha256 variables, `sha256sum -c`
 - [x] T8 Replace "unverified" text in ARCHITECTURE, ROADMAP FR-04/05 and the `tts_kokoro.py` docstring; record measured speed and memory
-- [ ] T9 `make up`: build, run, convert through the stack; fix what breaks
+- [x] T9 `make up`: build, run, convert through the stack; fix what breaks
 - [x] T10 Dockerfile and `uv.lock`: decide; D-018 only if needed
 - [ ] T11 `docker-compose.offline.yml`; prove offline conversion and a failing outbound connect
 - [ ] T12 README troubleshooting and bind-mount permissions checked against real behavior
