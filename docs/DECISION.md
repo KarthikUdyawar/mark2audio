@@ -214,3 +214,57 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
 - Decision: keep plain dict responses. Recorded as a deviation, not rewritten.
 - Consequence: no response schema in OpenAPI. Revisit if the UI is rewritten in TypeScript
   ([D-003](#d-003--vanilla-js-ui-served-by-the-api)), where typed responses matter.
+
+## D-022 — SQLite and local disk stay the defaults; infrastructure lab is optional
+
+- Date: 2026-11-22 · Status: accepted
+- Context: three independent design reviews of the idea "PostgreSQL, Garage (S3) and React/TS"
+  agreed that none solves a product problem for one user on one machine, and that object storage
+  adds failure modes because FFmpeg needs local files anyway. The maintainer also wants to learn
+  these technologies.
+- Decision: SQLite and local disk are the defaults until a real requirement appears (multi-user,
+  multi-machine, concurrent workers). PostgreSQL and S3-compatible storage may be added only as
+  optional compose profiles in lab sprints, each with its own PRD and decision. The default
+  install and the offline worker proof (`network_mode: none`) stay unchanged. No repository or
+  storage interface is built before a second implementation is.
+- Consequence: this changes technical rules Architecture and scope 3 and 4 in
+  [ARCHITECTURE.md](ARCHITECTURE.md#technical-rules) for the optional profiles only. The lab
+  track is in [ROADMAP.md](ROADMAP.md#lab-track-optional).
+
+## D-023 — Versioned SQL migrations
+
+- Date: 2026-11-22 · Status: accepted · Supersedes the "no migration tool" part of
+  [D-004](#d-004--stdlib-sqlite3-no-orm-or-migration-tool) (stdlib `sqlite3` stays)
+- Decision: ordered `.sql` files in `backend/app/migrations/`, tracked by `PRAGMA user_version`.
+  A pending migration runs inside `BEGIN IMMEDIATE` and re-reads the version there, because the
+  api and the worker both start the store. Before applying any migration to an existing database,
+  the file is copied to `mark2audio.db.pre-vN`. A database newer than the code refuses to start.
+  No Alembic, no ORM.
+- Consequence: every schema change is a new numbered file with a test. The baseline migration
+  keeps `CREATE TABLE IF NOT EXISTS`, so existing v0.2.0 databases are adopted unchanged.
+
+## D-024 — Pydantic response models
+
+- Date: 2026-11-22 · Status: accepted · Supersedes [D-021](#d-021--api-responses-stay-plain-dicts)
+- Context: plain dict responses leave no response schema in OpenAPI, which blocks a generated
+  TypeScript client.
+- Decision: every public endpoint declares a `response_model`, and the error shape is documented
+  in OpenAPI. Field names and values of existing responses do not change.
+- Consequence: API rule 2 is met. Done in S3.
+
+## D-025 — React/TypeScript approved for the lab track
+
+- Date: 2026-11-22 · Status: accepted, scheduled as Lab 1 after D-024 lands
+- Decision: the UI may be rewritten in React and TypeScript. Vite builds a static bundle served by
+  the API process, with no frontend container. API types are generated from the OpenAPI schema and
+  the generated file is checked in CI. The vanilla UI ([D-003](#d-003--vanilla-js-ui-served-by-the-api))
+  stays until the rewrite reaches parity.
+- Consequence: UI rules 1 to 3 in [DESIGN.md](DESIGN.md#rules) apply from that sprint.
+
+## D-026 — Default tests stay offline and service-free
+
+- Date: 2026-11-22 · Status: accepted
+- Decision: `make test` needs no network, no Docker and no external service. Tests that need
+  PostgreSQL or an object store are opt-in (pytest marker, compose service) and never part of the
+  default gate or of CI's default job.
+- Consequence: a SQLite fallback is not accepted as a stand-in for PostgreSQL tests.
