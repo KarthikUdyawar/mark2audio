@@ -3,8 +3,8 @@
 One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 
 - [x] T0 Sprint S2 PRD and TODO, tick S1 T17, ROADMAP sprint row
-- [ ] T1 D-020 heartbeat file, D-021 dict responses
-- [ ] T2 H1: missing `source.md` gives `SOURCE_MISSING` (test first)
+- [x] T1 D-020 heartbeat file, D-021 dict responses (`7526d92`)
+- [x] T2 H1: missing `source.md` gives `SOURCE_MISSING` (test first)
 - [ ] T3 H2: failed upload leaves no orphan folder (test first)
 - [ ] T4 H4: catch-all handler returns the `INTERNAL` error shape (test first)
 - [ ] T5 H7: `create_job` for an unknown book gives `BOOK_NOT_FOUND` (test first)

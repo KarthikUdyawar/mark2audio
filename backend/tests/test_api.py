@@ -119,3 +119,10 @@ def test_cancel_queued_job_and_terminal_cancel_conflicts(client: TestClient) -> 
 def test_bad_ids_are_404_never_500(client: TestClient) -> None:
     for path in ("/books/..%2F..%2Fetc", "/books/not-a-uuid/audio", "/jobs/zzz"):
         assert client.get("/api/v1" + path).status_code == 404
+
+
+def test_detail_with_missing_source_is_stable_error(client: TestClient, settings: Settings) -> None:
+    bid = str(upload(client)["id"])
+    (settings.uploads_dir / bid / "source.md").unlink()
+    res = client.get(f"/api/v1/books/{bid}")
+    assert res.status_code == 500 and res.json()["error"]["code"] == "SOURCE_MISSING"

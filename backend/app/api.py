@@ -60,8 +60,13 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
     store = Store(settings.db_path)
     api = APIRouter(prefix="/api/v1")
 
-    def source_of(book_id: str) -> Path:
-        return book_dir(settings.uploads_dir, book_id) / "source.md"
+    def read_source(book_id: str) -> str:
+        try:
+            return (book_dir(settings.uploads_dir, book_id) / "source.md").read_text(
+                encoding="utf-8"
+            )
+        except FileNotFoundError:
+            raise AppError("SOURCE_MISSING", "Book source file is missing.", 500) from None
 
     @api.get("/health")
     def health() -> dict[str, object]:
@@ -101,7 +106,7 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
     @api.get("/books/{book_id}")
     def book_detail(book_id: str) -> dict[str, object]:
         book = store.get_book(book_id)
-        chapters = parse_markdown(source_of(book_id).read_text(encoding="utf-8"))
+        chapters = parse_markdown(read_source(book_id))
         latest = store.latest_job(book_id)
         return {
             **_book_json(book),
