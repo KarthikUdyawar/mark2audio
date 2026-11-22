@@ -10,7 +10,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T5 H7: `create_job` for an unknown book gives `BOOK_NOT_FOUND` (test first)
 - [x] T6 H8: `ENOSPC` becomes `DISK_FULL` in upload and worker (test first)
 - [x] T7 Heartbeat: `Settings.heartbeat_path`, worker touches it in four places (test first)
-- [ ] T8 Compose worker health check; verify healthy, busy and unhealthy by hand
+- [x] T8 Compose worker health check; verify healthy, busy and unhealthy by hand
 - [ ] T9 README: health status, orphan-files limitation (H3)
 - [ ] T10 ARCHITECTURE, ROADMAP (S2 row, candidates), `make tree`
 - [ ] T11 Review sprint diff (CLAUDE.md section 18), fix findings
