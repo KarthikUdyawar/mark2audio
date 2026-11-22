@@ -1,6 +1,7 @@
-"""Kokoro ONNX adapter. Needs `pip install '.[tts]'` and model files in M2A_MODEL_DIR.
+"""Kokoro ONNX adapter. Needs `uv sync --extra tts` and model files in M2A_MODEL_DIR.
 
-Untested against the real model in CI (see tests/test_smoke_kokoro.py, skipped without model files).
+Verified locally against the real model (docs/DECISION.md, D-017). CI uses a stub
+(tests/test_kokoro_adapter.py); tests/test_smoke_kokoro.py needs the real model files.
 """
 
 from pathlib import Path

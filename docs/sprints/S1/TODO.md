@@ -1,0 +1,24 @@
+# S1 — Tasks
+
+One commit per task. Goal and acceptance: [PRD.md](PRD.md).
+
+- [x] T0 Sprint S1 PRD and TODO
+- [x] T1 D-016 merge flow; fix CLAUDE.md step 6; tick S0 T21; ROADMAP S0 done, S1 planned
+- [x] T2 Smoke test: repo-root model path, both files, synth, encode and probe; `make smoke`
+- [x] T3 Adapter audit against `kokoro-onnx` 0.6.1: no defects; call contract locked by a stub test
+- [x] T4 Chunk size: `kokoro-onnx` splits phonemes itself (max 510), no truncation up to 1600 chars; 400 kept
+- [x] T5 Real-time factor ~0.2, peak RSS ~1.3 GB, chunk joins and silence checked by ear
+- [x] T6 Confirm model URLs, revision, license and sha256 upstream; D-017
+- [x] T7 `make model`: pinned URLs, sha256 variables, `sha256sum -c`
+- [x] T8 Replace "unverified" text in ARCHITECTURE, ROADMAP FR-04/05 and the `tts_kokoro.py` docstring; record measured speed and memory
+- [x] T9 `make up`: build, run, convert through the stack; fix what breaks
+- [x] T10 Dockerfile and `uv.lock`: decide; D-018 only if needed
+- [x] T11 `docker-compose.offline.yml`; prove offline conversion and a failing outbound connect
+- [x] T12 README troubleshooting and bind-mount permissions checked against real behavior
+- [x] T13 Test for `app/main.py` (test first)
+- [x] T14 Worker coverage gaps from `--cov-report=term-missing`
+- [x] T15 Pin GitHub Actions by commit SHA (confirm peeled commit with `^{}`)
+- [x] T16 Review sprint diff (CLAUDE.md section 18), fix findings (`4a5f3b9`)
+- [ ] T17 PR to `develop`, `release/v0.1.0` PR to `main`, tag `v0.1.0`, handoff
+
+Cut line if the sprint runs long: T15 first, then T10.

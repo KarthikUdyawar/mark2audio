@@ -28,7 +28,7 @@ All under `backend/app/`.
 | `parser.py`         | `parse_markdown(text, include_code)` → `Chapter` list (markdown-it-py) |
 | `chunker.py`        | `chunk_chapters(chapters, max_chars)` → `Chunk` list                   |
 | `tts.py`            | `TtsEngine` protocol, `FakeTts`, `load_engine`, `SPEED_RANGE`          |
-| `tts_kokoro.py`     | `KokoroTts` adapter. Not yet run against real model files              |
+| `tts_kokoro.py`     | `KokoroTts` adapter, verified with the real model (D-017)              |
 | `encoder.py`        | `WavSink`, `ffmpeg_args`, `encode_mp3`, `probe_mp3`                    |
 | `storage.py`        | `book_dir`, `remove_tree`: UUID-only, containment-checked paths        |
 | `store.py`          | `Store`: SQLite access, state machine, atomic claim                    |
@@ -101,6 +101,21 @@ stateDiagram-v2
 
 The model is loaded once per worker process (`load_engine` in `main`).
 
+## Measured performance
+
+CPU only, 16 threads, 14 GiB RAM, Kokoro v1.0 through `kokoro-onnx` 0.6.1, run in a plain
+Python process (not Docker), 2026-11-21:
+
+- Speed: real-time factor about 0.2 (wall time is about 0.2 × audio length) for chunks of 400
+  characters or more; a 100-character chunk measured 0.36 including first-call warmup. A
+  one-hour book takes about 12 minutes.
+- Memory: peak RSS about 1.3 GB in the process that holds the model. Only the worker loads it.
+- In Docker (same machine): real-time factor about 0.24 (a 3.6-minute book in 52 s); worker
+  peak about 0.95 GB, sampled once per second with `docker stats`.
+- Chunk size: chunks up to 1600 characters synthesize without truncation, because `kokoro-onnx`
+  splits long text itself (510 phonemes). `M2A_CHUNK_MAX_CHARS` therefore only bounds memory and
+  progress granularity.
+
 ## API
 
 Router prefix `/api/v1`. Errors: `{"error": {"code", "message"}}` via handlers for `AppError` and
@@ -134,18 +149,26 @@ the root (blocks traversal and symlink escape).
 
 ## Runtime
 
-- `backend/Dockerfile`: `python:3.12.7-slim-bookworm`, FFmpeg, user uid 1000, `pip install ".[tts]"`.
+- `backend/Dockerfile`: `python:3.12.7-slim-bookworm`, FFmpeg, user uid 1000, dependencies from
+  `uv.lock` via pinned `uv` 0.13.6 ([D-018](DECISION.md)).
 - `docker-compose.yml`: services `api` (port `127.0.0.1:8000`, health check on `/api/v1/health`)
   and `worker` (waits for api healthy, no health check of its own). Volumes `./data:/data`,
   `./models/kokoro:/models:ro`; optional `.env`; `environment` pins `M2A_DATA_DIR=/data` and `M2A_MODEL_DIR=/models`
   (wins over `.env`); `restart: unless-stopped`.
 - Native: `make api`, `make worker`, see `Makefile`.
-- Image and compose have not been built or run yet.
+- Image built and run with Compose on 2026-11-21: a real-model conversion completes and the
+  container writes `data/` through the bind mount (host and container uid are both 1000).
+- Offline proof: `docker-compose.offline.yml` gives the worker `network_mode: none`. Run
+  `docker compose -f docker-compose.yml -f docker-compose.offline.yml up -d --force-recreate worker`.
+  On 2026-11-21 a worker with only a loopback interface, failing outbound connects and failing DNS
+  converted a book with the real model. Restore with
+  `docker compose up -d --force-recreate worker`.
 
 ## Tests
 
 `backend/tests/`: `test_api`, `test_audio`, `test_chunker`, `test_parser`, `test_store`,
-`test_worker`, `test_smoke_kokoro` (runs only when model files exist). `conftest.py` fixtures:
+`test_worker`, `test_main`, `test_tts`, `test_kokoro_adapter` (stub model), `test_smoke_kokoro` (real model and
+FFmpeg, runs only when both exist; `make smoke`). `conftest.py` fixtures:
 `settings` (tmp dirs, `chunk_max_chars=40`, `silence_ms=50`), `store`, `engine` (`FakeTts`).
 Coverage gate 80% (`pyproject.toml`), `tts_kokoro.py` omitted.
 
@@ -156,7 +179,7 @@ Git hooks: checks on commit, commit-message format, pytest on push; `main` and `
 are blocked. CI (`.github/workflows/ci.yml`) calls the same make targets; run it locally with
 `make ci` (`act`). The real-model smoke test is skipped in CI. Dependencies are locked in
 `backend/uv.lock`, dev tools sit in the `dev` dependency group, Python 3.12
-(`backend/.python-version`). Decisions: [D-012](DECISION.md).
+(`backend/.python-version`). Decisions: [D-012](DECISION.md), [D-019](DECISION.md) (Actions pinned by SHA).
 
 ## Optional tooling (off by default)
 

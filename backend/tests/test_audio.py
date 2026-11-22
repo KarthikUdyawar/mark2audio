@@ -52,3 +52,20 @@ def test_encode_failure_is_safe_error(tmp_path: Path) -> None:
     with pytest.raises(AppError) as err:
         encode_mp3(tmp_path / "missing.wav", tmp_path / "o.part", 192, "T")
     assert err.value.code == "ENCODE_FAILED" and str(tmp_path) not in err.value.message
+
+
+def test_probe_rejects_valid_audio_that_is_not_mp3(tmp_path: Path) -> None:
+    make_wav(tmp_path / "a.wav")
+    with pytest.raises(AppError) as err:
+        probe_mp3(tmp_path / "a.wav")
+    assert err.value.code == "OUTPUT_INVALID"
+
+
+def test_encode_without_ffmpeg_is_safe_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    make_wav(tmp_path / "a.wav")
+    monkeypatch.setenv("PATH", str(tmp_path / "no-binaries-here"))
+    with pytest.raises(AppError) as err:
+        encode_mp3(tmp_path / "a.wav", tmp_path / "o.part", 192, "T")
+    assert err.value.code == "ENCODE_FAILED" and str(tmp_path) not in err.value.message

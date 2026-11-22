@@ -129,3 +129,65 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
   requests to `main` and `develop`. The pre-merge gate is `make ci` (`act`) plus `make check`.
 - Consequence: a feature branch gets no remote CI until it is merged into `develop` or a PR is
   opened. Run `make ci` before every merge.
+
+## D-016 — Sprint merge flow by pull request
+
+- Date: 2026-11-21 · Status: accepted · Supersedes the merge wording in D-007 and D-015
+- Context: S0 was released through GitHub pull requests (#1 into `develop`, #2 into `main`), not
+  local merges. After the release, `main` and `develop` had identical trees, so a back-merge
+  would only add a merge commit that `main` lacks, on every release.
+- Decision: a sprint merges `feature/*` → `develop` by pull request, then `release/v0.N.0` →
+  `main` by pull request. Both use a merge commit, never squash or rebase. Tag `v0.N.0` on the
+  merge commit on `main`. Back-merge `main` → `develop` only when `main` has content `develop`
+  lacks (for example a hotfix). PR title is `type: summary` with the same types as commits;
+  labels: `chore`, `documentation`, `ci`, `sprint:Sn`, `no-behavior-change`; release PRs get
+  `release` and `v0.N.0`.
+- Consequence: CI runs on every PR ([D-015](#d-015--ci-runs-on-develop-main-release-and-pull-requests)),
+  so `make ci` before opening the PR remains the pre-merge gate. Merge commits made on GitHub
+  skip the local commit-msg hook, so the PR title carries the format. `v0.0.0` stays on the
+  `develop` merge commit `b0aa8fe`, because a pushed tag does not move.
+
+## D-017 — Model provenance, Kokoro verified locally
+
+- Date: 2026-11-21 · Status: accepted · Supersedes the "unverified with real model" status of D-002
+- Context: S1 ran the Kokoro adapter against the real model (smoke test, adapter audit, speed and
+  memory measured, see [ARCHITECTURE.md](ARCHITECTURE.md)). `make model` URLs were written from
+  memory.
+- Decision: model files come from the GitHub release `model-files-v1.0` of
+  `thewh1teagle/kokoro-onnx`: `kokoro-v1.0.onnx` and `voices-v1.0.bin`. Their URLs and sha256 are
+  pinned in the `Makefile` (the only place hashes are stored), and `make model` fails on a
+  mismatch. Release `model-files-v1.1` also exists, ships a different `kokoro-v1.0.onnx` (other
+  bytes and size), and is not verified. GitHub published no digest for the v1.0 onnx; its pin is
+  the hash of the file the smoke test passed on, with a size equal to the upstream asset.
+- Licenses, as stated in the upstream README on 2026-11-21: `kokoro-onnx` MIT, Kokoro model
+  Apache 2.0. Per-voice terms and the Kokoro-82M model card were not checked.
+- Consequence: the repository is private ([D-008](#d-008--private-repository)); check voice
+  terms before any distribution. Moving to v1.1 or another model needs a new decision and a new
+  smoke run.
+
+## D-018 — Docker image installs from `uv.lock`
+
+- Date: 2026-11-21 · Status: accepted · Completes [D-010](#d-010--locked-dependencies-one-set-of-gate-commands)
+  for the image
+- Context: the image was built with `pip install ".[tts]"`, which resolves fresh versions. S1
+  found it shipped fastapi 0.165.0, numpy 2.5.5, pydantic 2.14.4 and python-multipart 0.0.34
+  against 0.163.0, 2.5.4, 2.14.3 and 0.0.33 in `backend/uv.lock`. The tested set is the lock, not
+  what the image ran.
+- Decision: the Dockerfile copies the `uv` binary from the pinned `ghcr.io/astral-sh/uv:0.13.6`
+  image (the version CI uses) and runs `uv sync --locked --no-dev --extra tts
+--no-install-project` into `/opt/venv`; the app source is copied afterwards. The build fails if
+  `uv.lock` is stale.
+- Consequence: image dependencies equal the lock. The `uv` binary stays in the image. Change the
+  `uv` version in the Dockerfile and `ci.yml` together. Dependency updates go through `uv lock`.
+
+## D-019 — GitHub Actions pinned by commit SHA
+
+- Date: 2026-11-21 · Status: accepted
+- Context: `ci.yml` used floating tags (`checkout@v4`, `setup-uv@v6`, `cache@v4`), so upstream
+  could change the code CI runs without any change here. Pre-commit hooks were already pinned.
+- Decision: every `uses:` in `.github/workflows` is pinned to a full commit SHA with the version
+  in a trailing comment. The SHA must be a commit: take the `^{}` line of
+  `git ls-remote <repo> 'refs/tags/<tag>' 'refs/tags/<tag>^{}'` when it exists, else the plain
+  line (a lightweight tag). Pinned in S1: `checkout` v4.4.0, `setup-uv` v6.8.0, `cache` v4.3.0.
+- Consequence: updates are manual, no Dependabot. The `uv` version in `ci.yml` and the Dockerfile
+  still changes together ([D-018](#d-018--docker-image-installs-from-uvlock)).
