@@ -39,6 +39,12 @@ Local CI: `make ci` (needs [`act`](https://github.com/nektos/act)). Opt-in scans
 - _Health `degraded`_: ffmpeg/ffprobe missing from PATH.
 - _Permission denied on `data/`_: container runs as uid 1000; `chown -R 1000 data`.
 - _`phonemizer words count mismatch` warnings in the worker log_: seen on every real conversion; the audio is fine and the log contains no document text.
+- _Worker `unhealthy` in `docker compose ps`_: its heartbeat file is stale, so the worker is
+  stopped or stuck; see `docker compose logs worker`. One very long FFmpeg encode can also show
+  it. Compose does not restart on it ([D-020](docs/DECISION.md#d-020--worker-health-check-by-heartbeat-file)).
+- _`DISK_FULL` error_: free disk space under `data/` and convert again.
+- _Known limitation_: if deleting a book fails to remove its files, orphans can stay in
+  `data/uploads/<id>` or `data/audio/<id>`. The UI does not show them; remove the folder by hand.
 
 ## Status
 

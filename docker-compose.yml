@@ -25,3 +25,15 @@ services:
     <<: *common
     command: ["python", "-m", "app.worker"]
     depends_on: { api: { condition: service_healthy } }
+    healthcheck: # heartbeat file younger than 300 s (D-020); a long FFmpeg encode may exceed it
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import os,sys,time; sys.exit(time.time()-os.stat('/data/worker.heartbeat').st_mtime>=300)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s

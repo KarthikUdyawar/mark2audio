@@ -678,6 +678,20 @@ Each fact lives in exactly one document. Others link to it, never copy it.
 
 `main` and `develop` are never committed to directly (the free GitHub plan cannot enforce this).
 
+Release recipe (`gh` is authenticated; create a new `sprint:Sn` label first with
+`gh label create sprint:Sn --force`). PR bodies use the sections Problem, Changes, Tests, Notes.
+
+1. `git push`, then `gh pr create --base develop --head feature/sN-<slug> --title "type: summary"
+--label ... --body-file /tmp/pr.md`, then `gh pr checks <branch> --watch`.
+2. `gh pr merge <branch> --merge`, then `git fetch origin && git switch develop && git pull --ff-only`.
+3. `git switch -c release/v0.N.0 && git push -u origin release/v0.N.0`, then the same
+   `gh pr create` with `--base main`, labels `release`, `v0.N.0`, `sprint:Sn`, then watch and merge.
+4. `git fetch origin`, then `git tag -a v0.N.0 "$(git rev-parse origin/main)" -m "..."` and
+   `git push origin v0.N.0`.
+5. Compare `git rev-parse origin/main^{tree} origin/develop^{tree}`; back-merge only if they differ.
+6. Clean up: `make down`, switch to `develop`, delete the local and remote `feature/*` and
+   `release/*` branches.
+
 ### Skills
 
 | Skill             | Use                                                                 |
@@ -710,3 +724,16 @@ Each fact lives in exactly one document. Others link to it, never copy it.
 - Commands run from the repo root unless a `cd` is shown.
 - File changes: git diff for text docs, `uv run python - << 'PY'` mutation script for computed edits.
 - Never claim a command passed unless its output was shown.
+- Command blocks never contain `cd`: the maintainer's shell keeps the directory and the next
+  block breaks. Everything runs from the repo root, for example
+  `uv run --project backend pytest backend/tests/test_x.py --no-cov` for one file.
+- Mutation scripts check every `old` string (exactly one match) for all files before writing
+  any, so a failed assert leaves the tree untouched.
+- Run `make check` before `git add`. Hooks reformat on commit (prettier realigns tables), so a
+  first commit can fail: `git add` the changed files again and commit again.
+- Test first means the pasted red run comes before the fix. The fix, its test and the TODO tick
+  share one commit.
+- Tick a TODO task only after its verification output was shown. The last task of a sprint
+  (release) is ticked in the first commit of the next sprint, with PR numbers, commit hashes
+  and tag.
+- Hand-verified runs (Docker health, offline) are recorded once in ARCHITECTURE with the date.

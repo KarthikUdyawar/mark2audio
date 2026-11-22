@@ -9,7 +9,7 @@ from pathlib import Path
 from app.chunker import chunk_chapters
 from app.config import Settings
 from app.encoder import WavSink, encode_mp3, probe_mp3
-from app.errors import AppError
+from app.errors import AppError, as_disk_full
 from app.parser import parse_markdown
 from app.storage import book_dir
 from app.store import Job, Store
@@ -20,6 +20,11 @@ log = logging.getLogger("mark2audio.worker")
 
 class _CancelledError(Exception):
     pass
+
+
+def beat(settings: Settings) -> None:
+    """Touch the heartbeat file so the health check sees the worker alive (D-020)."""
+    settings.heartbeat_path.touch()
 
 
 def run_pending(store: Store, engine: TtsEngine, settings: Settings) -> bool:
@@ -33,12 +38,14 @@ def run_pending(store: Store, engine: TtsEngine, settings: Settings) -> bool:
         _settle(store, job.id, "completed")
     except _CancelledError:
         pass
-    except AppError as err:
-        log.warning("job %s failed: %s", job.id, err.code, exc_info=err.__cause__ is not None)
-        _settle(store, job.id, "failed", err.code, err.message)
-    except Exception:
-        log.exception("job %s crashed", job.id)  # stack trace stays server-side
-        _settle(store, job.id, "failed", "INTERNAL", "Conversion failed. See server logs.")
+    except Exception as err:
+        known = err if isinstance(err, AppError) else as_disk_full(err)
+        if known is None:
+            log.exception("job %s crashed", job.id)  # stack trace stays server-side
+            _settle(store, job.id, "failed", "INTERNAL", "Conversion failed. See server logs.")
+        else:
+            log.warning("job %s failed: %s", job.id, known.code, exc_info=err.__cause__ is not None)
+            _settle(store, job.id, "failed", known.code, known.message)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
         (book_dir(settings.audio_dir, job.book_id) / "audiobook.mp3.part").unlink(missing_ok=True)
@@ -74,9 +81,11 @@ def _convert(store: Store, engine: TtsEngine, settings: Settings, job: Job, temp
             sink.write(audio.samples, audio.rate)
             sink.silence(settings.silence_ms)
             store.set_progress(job.id, done, len(chunks), chunk.chapter_title)
+            beat(settings)
     out_dir = book_dir(settings.audio_dir, job.book_id)
     out_dir.mkdir(parents=True, exist_ok=True)
     part = out_dir / "audiobook.mp3.part"
+    beat(settings)
     encode_mp3(wav, part, job.bitrate_kbps, book.title, settings.ffmpeg_timeout_s)
     probe_mp3(part)
     if store.get_job(job.id).status == "cancelled":
@@ -93,6 +102,7 @@ def main() -> None:
     engine = load_engine(settings)  # model loaded once per process
     log.info("worker ready")
     while True:
+        beat(settings)
         if not run_pending(store, engine, settings):
             time.sleep(settings.poll_seconds)
 

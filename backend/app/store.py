@@ -153,6 +153,8 @@ class Store:
     def create_job(self, book_id: str, p: JobParams) -> Job:
         job_id = str(uuid4())
         with self._tx() as db:
+            if db.execute("SELECT 1 FROM books WHERE id=?", (book_id,)).fetchone() is None:
+                raise AppError("BOOK_NOT_FOUND", "Book not found.", 404)  # deleted meanwhile
             if db.execute(self._active_sql(), (book_id,)).fetchone():
                 raise AppError("JOB_ACTIVE", "A conversion is already active for this book.", 409)
             db.execute(

@@ -19,6 +19,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T14 Worker coverage gaps from `--cov-report=term-missing`
 - [x] T15 Pin GitHub Actions by commit SHA (confirm peeled commit with `^{}`)
 - [x] T16 Review sprint diff (CLAUDE.md section 18), fix findings (`4a5f3b9`)
-- [ ] T17 PR to `develop`, `release/v0.1.0` PR to `main`, tag `v0.1.0`, handoff
+- [x] T17 PR #3 to `develop` (`a13121f`), PR #4 `release/v0.1.0` to `main` (`f436748`),
+      tag `v0.1.0`. Back-merge skipped, trees identical. Handoff note moves to S2 T12
 
 Cut line if the sprint runs long: T15 first, then T10.
