@@ -51,10 +51,11 @@ of 2026-11-22. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 One `feature/sN-<slug>` branch per sprint, one commit per task, release tagged `v0.N.0`.
 Per-sprint `PRD.md` and `TODO.md` live in `sprints/SN/`.
 
-| Sprint                  | Theme                                            | Release  | Status |
-| ----------------------- | ------------------------------------------------ | -------- | ------ |
-| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile  | `v0.0.0` | Done   |
-| [S1](sprints/S1/PRD.md) | Verify the baseline: real model, Docker, offline | `v0.1.0` | Done   |
+| Sprint                  | Theme                                            | Release  | Status      |
+| ----------------------- | ------------------------------------------------ | -------- | ----------- |
+| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile  | `v0.0.0` | Done        |
+| [S1](sprints/S1/PRD.md) | Verify the baseline: real model, Docker, offline | `v0.1.0` | Done        |
+| [S2](sprints/S2/PRD.md) | Ops hardening: worker health check, API errors   | `v0.2.0` | In progress |
 
 ## Unscheduled candidates
 
