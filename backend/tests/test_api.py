@@ -126,3 +126,16 @@ def test_detail_with_missing_source_is_stable_error(client: TestClient, settings
     (settings.uploads_dir / bid / "source.md").unlink()
     res = client.get(f"/api/v1/books/{bid}")
     assert res.status_code == 500 and res.json()["error"]["code"] == "SOURCE_MISSING"
+
+
+def test_failed_upload_leaves_no_orphan_folder(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*_: object) -> None:
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(Store, "create_book", boom)
+    client = TestClient(create_app(settings, FakeTts()), raise_server_exceptions=False)
+    res = client.post("/api/v1/books/upload", files={"file": ("a.md", MD)})
+    assert res.status_code == 500
+    assert list(settings.uploads_dir.iterdir()) == []

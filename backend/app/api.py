@@ -95,8 +95,12 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
         book_id = str(uuid.uuid4())
         folder = book_dir(settings.uploads_dir, book_id)
         folder.mkdir(parents=True)
-        (folder / "source.md").write_text(text, encoding="utf-8")
-        store.create_book(book_id, title, display, len(chapters))
+        try:
+            (folder / "source.md").write_text(text, encoding="utf-8")
+            store.create_book(book_id, title, display, len(chapters))
+        except BaseException:
+            shutil.rmtree(folder, ignore_errors=True)  # no orphan upload on failure
+            raise
         return _book_json(store.get_book(book_id))
 
     @api.get("/books")
