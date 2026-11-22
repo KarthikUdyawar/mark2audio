@@ -1,5 +1,6 @@
 """REST API (/api/v1) + static UI. Heavy work is queued for the worker, never run here."""
 
+import logging
 import re
 import shutil
 import uuid
@@ -20,6 +21,7 @@ from app.store import Book, Job, JobParams, Store
 from app.tts import SPEED_RANGE, TtsEngine
 
 STATIC = Path(__file__).parent / "static"
+log = logging.getLogger("mark2audio.api")
 
 
 class ConvertRequest(BaseModel):
@@ -171,6 +173,12 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, err: AppError) -> JSONResponse:
         return JSONResponse({"error": {"code": err.code, "message": err.message}}, err.status)
+
+    @app.exception_handler(Exception)
+    async def _unexpected(_: Request, err: Exception) -> JSONResponse:
+        log.error("unhandled error", exc_info=err)  # stack trace stays server-side
+        body = {"error": {"code": "INTERNAL", "message": "Unexpected server error."}}
+        return JSONResponse(body, 500)
 
     @app.exception_handler(RequestValidationError)
     async def _invalid(_: Request, err: RequestValidationError) -> JSONResponse:
