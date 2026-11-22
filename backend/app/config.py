@@ -43,6 +43,11 @@ class Settings:
     def db_path(self) -> Path:
         return self.data_dir / "mark2audio.db"
 
+    @property
+    def heartbeat_path(self) -> Path:
+        """Touched by the worker; read by the compose health check (D-020)."""
+        return self.data_dir / "worker.heartbeat"
+
     def ensure_dirs(self) -> None:
         for path in (self.uploads_dir, self.audio_dir, self.temp_dir):
             path.mkdir(parents=True, exist_ok=True)

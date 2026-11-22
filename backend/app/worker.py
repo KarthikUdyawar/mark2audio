@@ -22,6 +22,11 @@ class _CancelledError(Exception):
     pass
 
 
+def beat(settings: Settings) -> None:
+    """Touch the heartbeat file so the health check sees the worker alive (D-020)."""
+    settings.heartbeat_path.touch()
+
+
 def run_pending(store: Store, engine: TtsEngine, settings: Settings) -> bool:
     """Run one queued job if any. Returns whether a job was claimed."""
     job = store.claim_next()
@@ -76,9 +81,11 @@ def _convert(store: Store, engine: TtsEngine, settings: Settings, job: Job, temp
             sink.write(audio.samples, audio.rate)
             sink.silence(settings.silence_ms)
             store.set_progress(job.id, done, len(chunks), chunk.chapter_title)
+            beat(settings)
     out_dir = book_dir(settings.audio_dir, job.book_id)
     out_dir.mkdir(parents=True, exist_ok=True)
     part = out_dir / "audiobook.mp3.part"
+    beat(settings)
     encode_mp3(wav, part, job.bitrate_kbps, book.title, settings.ffmpeg_timeout_s)
     probe_mp3(part)
     if store.get_job(job.id).status == "cancelled":
@@ -95,6 +102,7 @@ def main() -> None:
     engine = load_engine(settings)  # model loaded once per process
     log.info("worker ready")
     while True:
+        beat(settings)
         if not run_pending(store, engine, settings):
             time.sleep(settings.poll_seconds)
 

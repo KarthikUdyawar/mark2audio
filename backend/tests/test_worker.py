@@ -158,3 +158,28 @@ def test_disk_full_fails_job_with_safe_code(settings: Settings, store: Store) ->
     run_pending(store, DiskFullTts(), settings)
     done = store.get_job(job.id)
     assert (done.status, done.error_code) == ("failed", "DISK_FULL")
+
+
+def test_job_beats_after_each_chunk_and_before_encode(
+    settings: Settings, store: Store, engine: FakeTts, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    beats: list[Settings] = []
+    monkeypatch.setattr(worker, "beat", beats.append)
+    job = store.create_job(add_book(settings, store), PARAMS)
+    run_pending(store, engine, settings)
+    assert len(beats) == store.get_job(job.id).total_chunks + 1
+
+
+def test_main_writes_heartbeat_when_ready_and_idle(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("M2A_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("M2A_FAKE_TTS", "1")
+
+    def stop_when_idle(_seconds: float) -> None:
+        raise _StopLoopError
+
+    monkeypatch.setattr(worker, "time", SimpleNamespace(sleep=stop_when_idle))
+    with pytest.raises(_StopLoopError):
+        worker.main()
+    assert settings.heartbeat_path.is_file()
