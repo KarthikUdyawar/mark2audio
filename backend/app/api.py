@@ -1,5 +1,6 @@
 """REST API (/api/v1) + static UI. Heavy work is queued for the worker, never run here."""
 
+import logging
 import re
 import shutil
 import uuid
@@ -13,13 +14,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.config import Settings
-from app.errors import AppError
+from app.errors import AppError, as_disk_full
 from app.parser import INTRO_TITLE, parse_markdown
 from app.storage import book_dir, remove_tree
 from app.store import Book, Job, JobParams, Store
 from app.tts import SPEED_RANGE, TtsEngine
 
 STATIC = Path(__file__).parent / "static"
+log = logging.getLogger("mark2audio.api")
 
 
 class ConvertRequest(BaseModel):
@@ -60,8 +62,13 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
     store = Store(settings.db_path)
     api = APIRouter(prefix="/api/v1")
 
-    def source_of(book_id: str) -> Path:
-        return book_dir(settings.uploads_dir, book_id) / "source.md"
+    def read_source(book_id: str) -> str:
+        try:
+            return (book_dir(settings.uploads_dir, book_id) / "source.md").read_text(
+                encoding="utf-8"
+            )
+        except FileNotFoundError:
+            raise AppError("SOURCE_MISSING", "Book source file is missing.", 500) from None
 
     @api.get("/health")
     def health() -> dict[str, object]:
@@ -90,8 +97,15 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
         book_id = str(uuid.uuid4())
         folder = book_dir(settings.uploads_dir, book_id)
         folder.mkdir(parents=True)
-        (folder / "source.md").write_text(text, encoding="utf-8")
-        store.create_book(book_id, title, display, len(chapters))
+        try:
+            (folder / "source.md").write_text(text, encoding="utf-8")
+            store.create_book(book_id, title, display, len(chapters))
+        except BaseException as err:
+            shutil.rmtree(folder, ignore_errors=True)  # no orphan upload on failure
+            full = as_disk_full(err)
+            if full is None:
+                raise
+            raise full from err
         return _book_json(store.get_book(book_id))
 
     @api.get("/books")
@@ -101,7 +115,7 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
     @api.get("/books/{book_id}")
     def book_detail(book_id: str) -> dict[str, object]:
         book = store.get_book(book_id)
-        chapters = parse_markdown(source_of(book_id).read_text(encoding="utf-8"))
+        chapters = parse_markdown(read_source(book_id))
         latest = store.latest_job(book_id)
         return {
             **_book_json(book),
@@ -162,6 +176,12 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, err: AppError) -> JSONResponse:
         return JSONResponse({"error": {"code": err.code, "message": err.message}}, err.status)
+
+    @app.exception_handler(Exception)
+    async def _unexpected(_: Request, err: Exception) -> JSONResponse:
+        log.error("unhandled error", exc_info=err)  # stack trace stays server-side
+        body = {"error": {"code": "INTERNAL", "message": "Unexpected server error."}}
+        return JSONResponse(body, 500)
 
     @app.exception_handler(RequestValidationError)
     async def _invalid(_: Request, err: RequestValidationError) -> JSONResponse:

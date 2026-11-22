@@ -1,3 +1,4 @@
+import errno
 from pathlib import Path
 
 import pytest
@@ -119,3 +120,49 @@ def test_cancel_queued_job_and_terminal_cancel_conflicts(client: TestClient) -> 
 def test_bad_ids_are_404_never_500(client: TestClient) -> None:
     for path in ("/books/..%2F..%2Fetc", "/books/not-a-uuid/audio", "/jobs/zzz"):
         assert client.get("/api/v1" + path).status_code == 404
+
+
+def test_detail_with_missing_source_is_stable_error(client: TestClient, settings: Settings) -> None:
+    bid = str(upload(client)["id"])
+    (settings.uploads_dir / bid / "source.md").unlink()
+    res = client.get(f"/api/v1/books/{bid}")
+    assert res.status_code == 500 and res.json()["error"]["code"] == "SOURCE_MISSING"
+
+
+def test_failed_upload_leaves_no_orphan_folder(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*_: object) -> None:
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(Store, "create_book", boom)
+    client = TestClient(create_app(settings, FakeTts()), raise_server_exceptions=False)
+    res = client.post("/api/v1/books/upload", files={"file": ("a.md", MD)})
+    assert res.status_code == 500
+    assert list(settings.uploads_dir.iterdir()) == []
+
+
+def test_unhandled_error_has_stable_shape_and_hides_details(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*_: object) -> None:
+        raise RuntimeError("secret /srv/path")
+
+    monkeypatch.setattr(Store, "list_books", boom)
+    client = TestClient(create_app(settings, FakeTts()), raise_server_exceptions=False)
+    res = client.get("/api/v1/books")
+    assert res.status_code == 500
+    assert res.json() == {"error": {"code": "INTERNAL", "message": "Unexpected server error."}}
+
+
+def test_disk_full_on_upload_is_stable_error(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def full(*_: object, **__: object) -> int:
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    monkeypatch.setattr(Path, "write_text", full)
+    client = TestClient(create_app(settings, FakeTts()), raise_server_exceptions=False)
+    res = client.post("/api/v1/books/upload", files={"file": ("a.md", MD)})
+    assert res.status_code == 507 and res.json()["error"]["code"] == "DISK_FULL"
+    assert list(settings.uploads_dir.iterdir()) == []  # disk_full leaves no orphan
