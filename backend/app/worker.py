@@ -9,7 +9,7 @@ from pathlib import Path
 from app.chunker import chunk_chapters
 from app.config import Settings
 from app.encoder import WavSink, encode_mp3, probe_mp3
-from app.errors import AppError
+from app.errors import AppError, as_disk_full
 from app.parser import parse_markdown
 from app.storage import book_dir
 from app.store import Job, Store
@@ -33,12 +33,14 @@ def run_pending(store: Store, engine: TtsEngine, settings: Settings) -> bool:
         _settle(store, job.id, "completed")
     except _CancelledError:
         pass
-    except AppError as err:
-        log.warning("job %s failed: %s", job.id, err.code, exc_info=err.__cause__ is not None)
-        _settle(store, job.id, "failed", err.code, err.message)
-    except Exception:
-        log.exception("job %s crashed", job.id)  # stack trace stays server-side
-        _settle(store, job.id, "failed", "INTERNAL", "Conversion failed. See server logs.")
+    except Exception as err:
+        known = err if isinstance(err, AppError) else as_disk_full(err)
+        if known is None:
+            log.exception("job %s crashed", job.id)  # stack trace stays server-side
+            _settle(store, job.id, "failed", "INTERNAL", "Conversion failed. See server logs.")
+        else:
+            log.warning("job %s failed: %s", job.id, known.code, exc_info=err.__cause__ is not None)
+            _settle(store, job.id, "failed", known.code, known.message)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
         (book_dir(settings.audio_dir, job.book_id) / "audiobook.mp3.part").unlink(missing_ok=True)

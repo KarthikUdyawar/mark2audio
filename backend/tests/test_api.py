@@ -1,3 +1,4 @@
+import errno
 from pathlib import Path
 
 import pytest
@@ -152,3 +153,16 @@ def test_unhandled_error_has_stable_shape_and_hides_details(
     res = client.get("/api/v1/books")
     assert res.status_code == 500
     assert res.json() == {"error": {"code": "INTERNAL", "message": "Unexpected server error."}}
+
+
+def test_disk_full_on_upload_is_stable_error(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def full(*_: object, **__: object) -> int:
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    monkeypatch.setattr(Path, "write_text", full)
+    client = TestClient(create_app(settings, FakeTts()), raise_server_exceptions=False)
+    res = client.post("/api/v1/books/upload", files={"file": ("a.md", MD)})
+    assert res.status_code == 507 and res.json()["error"]["code"] == "DISK_FULL"
+    assert list(settings.uploads_dir.iterdir()) == []  # disk_full leaves no orphan

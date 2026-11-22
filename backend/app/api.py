@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.config import Settings
-from app.errors import AppError
+from app.errors import AppError, as_disk_full
 from app.parser import INTRO_TITLE, parse_markdown
 from app.storage import book_dir, remove_tree
 from app.store import Book, Job, JobParams, Store
@@ -100,9 +100,12 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
         try:
             (folder / "source.md").write_text(text, encoding="utf-8")
             store.create_book(book_id, title, display, len(chapters))
-        except BaseException:
+        except BaseException as err:
             shutil.rmtree(folder, ignore_errors=True)  # no orphan upload on failure
-            raise
+            full = as_disk_full(err)
+            if full is None:
+                raise
+            raise full from err
         return _book_json(store.get_book(book_id))
 
     @api.get("/books")

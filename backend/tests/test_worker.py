@@ -1,3 +1,4 @@
+import errno
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -145,3 +146,15 @@ def test_main_recovers_stale_job_runs_queued_then_idles(
         worker.main()
     assert store.get_job(stale.id).error_code == "WORKER_RESTARTED"
     assert store.get_job(queued.id).status == "completed"
+
+
+class DiskFullTts(FakeTts):
+    def synthesize(self, text: str, voice_id: str, speed: float, language: str) -> Audio:
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+
+def test_disk_full_fails_job_with_safe_code(settings: Settings, store: Store) -> None:
+    job = store.create_job(add_book(settings, store), PARAMS)
+    run_pending(store, DiskFullTts(), settings)
+    done = store.get_job(job.id)
+    assert (done.status, done.error_code) == ("failed", "DISK_FULL")
