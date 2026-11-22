@@ -191,3 +191,26 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
   line (a lightweight tag). Pinned in S1: `checkout` v4.4.0, `setup-uv` v6.8.0, `cache` v4.3.0.
 - Consequence: updates are manual, no Dependabot. The `uv` version in `ci.yml` and the Dockerfile
   still changes together ([D-018](#d-018--docker-image-installs-from-uvlock)).
+
+## D-020 — Worker health check by heartbeat file
+
+- Date: 2026-11-22 · Status: accepted
+- Context: technical rule Docker and operations 3 asks for a worker health check; the worker has
+  none. A heartbeat touched only while idle goes stale during a long conversion.
+- Decision: the worker touches `data/worker.heartbeat` after the model loads, on every idle poll,
+  after every chunk and before encoding. Compose marks the worker healthy while the file is
+  younger than 300 s (`start_period` 120 s for model load). Path and threshold are fixed, not
+  env-driven. No schema change.
+- Consequence: a single FFmpeg encode can exceed 300 s (timeout 1800 s) and show `unhealthy`.
+  Harmless: compose does not restart on it. A DB heartbeat table was rejected (schema change,
+  see [D-004](#d-004--stdlib-sqlite3-no-orm-or-migration-tool)).
+
+## D-021 — API responses stay plain dicts
+
+- Date: 2026-11-22 · Status: accepted
+- Context: API rule 2 asks Pydantic schemas for request and response data. Requests are
+  validated by Pydantic (`ConvertRequest`); responses are built by `_job_json` and `_book_json`
+  and covered by API tests.
+- Decision: keep plain dict responses. Recorded as a deviation, not rewritten.
+- Consequence: no response schema in OpenAPI. Revisit if the UI is rewritten in TypeScript
+  ([D-003](#d-003--vanilla-js-ui-served-by-the-api)), where typed responses matter.
