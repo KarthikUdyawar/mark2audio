@@ -104,3 +104,10 @@ def test_book_dir_rejects_traversal_and_symlink_escape(tmp_path: Path) -> None:
     with pytest.raises(AppError):
         book_dir(root, bid)
     assert book_dir(root, str(uuid.uuid4())).parent == root.resolve()
+
+
+def test_create_job_for_unknown_book_is_not_found(store: Store) -> None:
+    params = JobParams("fake_a", "en-us", 1.0, 128, False)
+    with pytest.raises(AppError) as err:
+        store.create_job(str(uuid.uuid4()), params)
+    assert err.value.code == "BOOK_NOT_FOUND" and err.value.status == 404
