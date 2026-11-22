@@ -51,17 +51,17 @@ of 2026-11-22. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 One `feature/sN-<slug>` branch per sprint, one commit per task, release tagged `v0.N.0`.
 Per-sprint `PRD.md` and `TODO.md` live in `sprints/SN/`.
 
-| Sprint                  | Theme                                                              | Release  | Status  |
-| ----------------------- | ------------------------------------------------------------------ | -------- | ------- |
-| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile                    | `v0.0.0` | Done    |
-| [S1](sprints/S1/PRD.md) | Verify the baseline: real model, Docker, offline                   | `v0.1.0` | Done    |
-| [S2](sprints/S2/PRD.md) | Ops hardening: worker health check, API errors                     | `v0.2.0` | Done    |
-| S3                      | Data foundation: migrations, chapters, durations, typed responses  | `v0.3.0` | Planned |
-| S4                      | Chapter export: chapter MP3s and ZIP with manifest                 | `v0.4.0` | Planned |
-| S5                      | Robustness and recovery: bad input, FFmpeg failure, crash, headers | `v0.5.0` | Planned |
-| S6                      | Content quality: headings, alt text, normalization, pronunciation  | `v0.6.0` | Planned |
-| S7                      | Library lifecycle: retention, cleanup, usage, retry, history       | `v0.7.0` | Planned |
-| S8                      | Voices and models: hidden voices, model v1.1, voice preview        | `v0.8.0` | Planned |
+| Sprint                  | Theme                                                              | Release  | Status      |
+| ----------------------- | ------------------------------------------------------------------ | -------- | ----------- |
+| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile                    | `v0.0.0` | Done        |
+| [S1](sprints/S1/PRD.md) | Verify the baseline: real model, Docker, offline                   | `v0.1.0` | Done        |
+| [S2](sprints/S2/PRD.md) | Ops hardening: worker health check, API errors                     | `v0.2.0` | Done        |
+| [S3](sprints/S3/PRD.md) | Data foundation: migrations, chapters, durations, typed responses  | `v0.3.0` | In progress |
+| S4                      | Chapter export: chapter MP3s and ZIP with manifest                 | `v0.4.0` | Planned     |
+| S5                      | Robustness and recovery: bad input, FFmpeg failure, crash, headers | `v0.5.0` | Planned     |
+| S6                      | Content quality: headings, alt text, normalization, pronunciation  | `v0.6.0` | Planned     |
+| S7                      | Library lifecycle: retention, cleanup, usage, retry, history       | `v0.7.0` | Planned     |
+| S8                      | Voices and models: hidden voices, model v1.1, voice preview        | `v0.8.0` | Planned     |
 
 ## Planned scope
 
