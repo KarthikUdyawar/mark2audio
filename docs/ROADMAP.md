@@ -51,24 +51,24 @@ of 2026-11-22. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 One `feature/sN-<slug>` branch per sprint, one commit per task, release tagged `v0.N.0`.
 Per-sprint `PRD.md` and `TODO.md` live in `sprints/SN/`.
 
-| Sprint                  | Theme                                            | Release  | Status      |
-| ----------------------- | ------------------------------------------------ | -------- | ----------- |
-| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile  | `v0.0.0` | Done        |
-| [S1](sprints/S1/PRD.md) | Verify the baseline: real model, Docker, offline | `v0.1.0` | Done        |
-| [S2](sprints/S2/PRD.md) | Ops hardening: worker health check, API errors   | `v0.2.0` | In progress |
+| Sprint                  | Theme                                            | Release  | Status |
+| ----------------------- | ------------------------------------------------ | -------- | ------ |
+| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile  | `v0.0.0` | Done   |
+| [S1](sprints/S1/PRD.md) | Verify the baseline: real model, Docker, offline | `v0.1.0` | Done   |
+| [S2](sprints/S2/PRD.md) | Ops hardening: worker health check, API errors   | `v0.2.0` | Done   |
 
 ## Unscheduled candidates
 
-Input for S2 planning, in rough priority order. S1 verified the baseline (real model, Docker,
+Input for S3 planning, in rough priority order. S1 verified the baseline (real model, Docker,
 offline), covered `app/main.py` and the worker, and pinned Actions by SHA.
+S2 added the worker health check and fixed the API failure paths found in review.
 
 ### **Hardening**
 
 - Review upload, path traversal and deletion safety; verify no remote Markdown resources are
   fetched; verify logs contain no source text.
-- Malformed Markdown, very long documents, disk-full, FFmpeg failure, restart during conversion.
+- Malformed Markdown, very long documents, FFmpeg failure, restart during conversion.
 - Troubleshooting guide and known limitations.
-- Worker health check (technical rule: Docker and operations, item 3; none exists yet).
 - Trace the `phonemizer words count mismatch` warnings in the worker log.
 - Evaluate model release `model-files-v1.1` (different `kokoro-v1.0.onnx`, untested, see D-017).
 - Enable the 26 hidden non-English voices after verifying their espeak language codes.
@@ -76,7 +76,8 @@ offline), covered `app/main.py` and the worker, and pinned Actions by SHA.
 ### **P1**
 
 - Chapter MP3 export and ZIP with manifest (FR-10).
-- Settings page, duration display, worker heartbeat, storage usage and cleanup.
+- Settings page, duration display, storage usage, cleanup and retention (technical rule: file
+  and path safety, item 10).
 - Conversion history, retry as new job.
 - More verified languages and voice packs.
 

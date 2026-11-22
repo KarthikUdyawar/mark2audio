@@ -48,7 +48,8 @@ All under `backend/app/`.
 | `M2A_FAKE_TTS`         | unset           | read in `tts.load_engine`; `1` = sine-tone engine |
 
 Fixed, not env-driven: FFmpeg timeout 1800 s (`ffmpeg_timeout_s`), probe timeout 60 s,
-speed range 0.8–1.2. Template: `.env.example`.
+speed range 0.8–1.2, heartbeat file `data/worker.heartbeat` ([D-020](DECISION.md#d-020--worker-health-check-by-heartbeat-file)).
+Template: `.env.example`.
 
 ## Data model
 
@@ -78,12 +79,13 @@ stateDiagram-v2
 - Transitions validated in `Store.transition`; anything else → `INVALID_TRANSITION` (409).
 - Claim: single `UPDATE … WHERE status='queued' … RETURNING` on the oldest queued job.
 - Create or delete while a job is queued/processing for the book → `JOB_ACTIVE` (409).
+  Create for a deleted book → `BOOK_NOT_FOUND` (404), checked in the same transaction.
   Retry = new job.
 - Progress: `completed*100//total`, capped at 99 until the `completed` transition sets 100;
   never decreases; only written while `processing`.
 - Worker start: `fail_stale()` marks `processing` jobs `failed` / `WORKER_RESTARTED`.
-- Failure: `AppError` → `failed` with its code and message; any other exception → `INTERNAL`,
-  generic message, stack trace in server log only.
+- Failure: `AppError` → `failed` with its code and message; out of disk space (`ENOSPC`) →
+  `DISK_FULL`; any other exception → `INTERNAL`, generic message, stack trace in server log only.
 - Cancel: status set to `cancelled` via API; worker checks before each chunk and before publish.
 - `finally` always removes `data/temp/{job_id}` and `audiobook.mp3.part`.
 
@@ -95,8 +97,8 @@ stateDiagram-v2
 2. No chapters → `NO_TEXT`.
 3. `chunk_chapters(chapters, chunk_max_chars)`.
 4. Per chunk, in order: cancel check → `engine.synthesize(text, voice, speed, language)` →
-   `WavSink.write` → `WavSink.silence(silence_ms)` → `set_progress`.
-5. `encode_mp3` (FFmpeg, argument list, timeout) to `audiobook.mp3.part`; `probe_mp3` validates.
+   `WavSink.write` → `WavSink.silence(silence_ms)` → `set_progress` → `beat`.
+5. `beat`, then `encode_mp3` (FFmpeg, argument list, timeout) to `audiobook.mp3.part`; `probe_mp3` validates.
 6. Cancel check; `os.replace` to `audiobook.mp3` (atomic); transition to `completed`.
 
 The model is loaded once per worker process (`load_engine` in `main`).
@@ -119,7 +121,9 @@ Python process (not Docker), 2026-11-21:
 ## API
 
 Router prefix `/api/v1`. Errors: `{"error": {"code", "message"}}` via handlers for `AppError` and
-request-validation errors. Book and job ids are UUIDs.
+request-validation errors, and a catch-all that returns `INTERNAL` (500) with the trace in the
+server log only. `DISK_FULL` is 507, `SOURCE_MISSING` (book file gone) is 500. A failed upload
+removes its folder. Book and job ids are UUIDs.
 
 | Method   | Path                       | Success   |
 | -------- | -------------------------- | --------- |
@@ -152,10 +156,16 @@ the root (blocks traversal and symlink escape).
 - `backend/Dockerfile`: `python:3.12.7-slim-bookworm`, FFmpeg, user uid 1000, dependencies from
   `uv.lock` via pinned `uv` 0.13.6 ([D-018](DECISION.md)).
 - `docker-compose.yml`: services `api` (port `127.0.0.1:8000`, health check on `/api/v1/health`)
-  and `worker` (waits for api healthy, no health check of its own). Volumes `./data:/data`,
+  and `worker` (waits for api healthy, health check from the heartbeat file). Volumes `./data:/data`,
   `./models/kokoro:/models:ro`; optional `.env`; `environment` pins `M2A_DATA_DIR=/data` and `M2A_MODEL_DIR=/models`
   (wins over `.env`); `restart: unless-stopped`.
 - Native: `make api`, `make worker`, see `Makefile`.
+- Worker health check ([D-020](DECISION.md#d-020--worker-health-check-by-heartbeat-file)): the worker touches `data/worker.heartbeat` after the
+  model loads, on every idle poll, after every chunk and before encoding. Compose marks it
+  healthy while the file is younger than 300 s (`start_period` 120 s). Verified 2026-11-22:
+  `healthy` idle and while converting; `unhealthy` with the process stopped and the file aged;
+  `healthy` again after resume, no restart. One FFmpeg encode over 300 s can show `unhealthy`;
+  compose does not restart on it.
 - Image built and run with Compose on 2026-11-21: a real-model conversion completes and the
   container writes `data/` through the bind mount (host and container uid are both 1000).
 - Offline proof: `docker-compose.offline.yml` gives the worker `network_mode: none`. Run

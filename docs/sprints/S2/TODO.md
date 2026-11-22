@@ -12,7 +12,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T7 Heartbeat: `Settings.heartbeat_path`, worker touches it in four places (test first)
 - [x] T8 Compose worker health check; verify healthy, busy and unhealthy by hand
 - [x] T9 README: health status, orphan-files limitation (H3)
-- [ ] T10 ARCHITECTURE, ROADMAP (S2 row, candidates), `make tree`
+- [x] T10 ARCHITECTURE, ROADMAP (S2 row, candidates), `make tree`
 - [ ] T11 Review sprint diff (CLAUDE.md section 18), fix findings
 - [ ] T12 PR to `develop`, `release/v0.2.0` PR to `main`, tag `v0.2.0`, S1 and S2 handoff
 
