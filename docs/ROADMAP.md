@@ -30,15 +30,15 @@ download.
 ## Requirements status
 
 Baseline MVP requirements (full acceptance criteria: `git show cd46e5b:docs/PRD.md`). Status as
-of 2026-11-15. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
+of 2026-11-22. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 | ID    | Requirement                                                     | Pri | Status                                |
 | ----- | --------------------------------------------------------------- | --- | ------------------------------------- |
 | FR-01 | Markdown upload, size/extension/UTF-8 validation, UUID storage  | P0  | Built                                 |
 | FR-02 | Parsing and normalization (links as text, code skipped, images) | P0  | Partial: no image alt-text option     |
 | FR-03 | Chapter detection from headings, intro, no-heading docs         | P0  | Built, heading level not configurable |
-| FR-04 | Voice catalogue from the installed model                        | P0  | Built, real model unverified          |
-| FR-05 | Local TTS, chunking, speed 0.8–1.2, progress                    | P0  | Built, real model unverified          |
+| FR-04 | Voice catalogue from the installed model                        | P0  | Built, verified with real model       |
+| FR-05 | Local TTS, chunking, speed 0.8–1.2, progress                    | P0  | Built, verified with real model       |
 | FR-06 | FFmpeg MP3 at 128/192/256 kbps, title metadata, probe           | P0  | Built                                 |
 | FR-07 | Job lifecycle, monotonic progress, safe errors                  | P0  | Built                                 |
 | FR-08 | Library, detail, delete                                         | P0  | Partial: no duration shown            |
@@ -51,22 +51,15 @@ of 2026-11-15. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 One `feature/sN-<slug>` branch per sprint, one commit per task, release tagged `v0.N.0`.
 Per-sprint `PRD.md` and `TODO.md` live in `sprints/SN/`.
 
-| Sprint                  | Theme                                           | Release  | Status      |
-| ----------------------- | ----------------------------------------------- | -------- | ----------- |
-| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile | `v0.0.0` | In progress |
-| S1                      | To be planned after S0                          | `v0.1.0` | Not planned |
+| Sprint                  | Theme                                            | Release  | Status |
+| ----------------------- | ------------------------------------------------ | -------- | ------ |
+| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile  | `v0.0.0` | Done   |
+| [S1](sprints/S1/PRD.md) | Verify the baseline: real model, Docker, offline | `v0.1.0` | Done   |
 
 ## Unscheduled candidates
 
-Input for S1 planning, in rough priority order.
-
-### **Verify the baseline**
-
-- Run the Kokoro adapter against the real model; fix assumptions.
-- `test_smoke_kokoro` skips even when `models/kokoro/` has both files: find out why, make it run.
-- Record model artifact source, revision, license and sha256 (`make model` URLs are from memory).
-- Build and run Docker Compose; test conversion with outbound network disabled.
-- Bind-mount permissions (container uid 1000).
+Input for S2 planning, in rough priority order. S1 verified the baseline (real model, Docker,
+offline), covered `app/main.py` and the worker, and pinned Actions by SHA.
 
 ### **Hardening**
 
@@ -75,8 +68,9 @@ Input for S1 planning, in rough priority order.
 - Malformed Markdown, very long documents, disk-full, FFmpeg failure, restart during conversion.
 - Troubleshooting guide and known limitations.
 - Worker health check (technical rule: Docker and operations, item 3; none exists yet).
-- Tests for `app/main.py` (0% covered) and the uncovered worker paths (81%).
-- Pin GitHub Actions by commit SHA, as pre-commit hooks already are.
+- Trace the `phonemizer words count mismatch` warnings in the worker log.
+- Evaluate model release `model-files-v1.1` (different `kokoro-v1.0.onnx`, untested, see D-017).
+- Enable the 26 hidden non-English voices after verifying their espeak language codes.
 
 ### **P1**
 

@@ -23,11 +23,15 @@ RUN useradd \
     --shell /usr/sbin/nologin \
     app
 
-# Install Python project.
-COPY backend/pyproject.toml ./
+# Install locked dependencies (backend/uv.lock), then the app source.
+COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /usr/local/bin/uv
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_LINK_MODE=copy \
+    PATH="/opt/venv/bin:$PATH"
+COPY backend/pyproject.toml backend/uv.lock ./
+RUN uv sync --locked --no-dev --extra tts --no-install-project
 COPY backend/app ./app
-
-RUN pip install --no-cache-dir ".[tts]"
 
 # Application directories.
 RUN mkdir -p /data /models \

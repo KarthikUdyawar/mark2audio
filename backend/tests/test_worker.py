@@ -1,8 +1,12 @@
+from pathlib import Path
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
+from app import worker
 from app.config import Settings
-from app.encoder import probe_mp3
+from app.encoder import encode_mp3, probe_mp3
 from app.errors import AppError
 from app.storage import book_dir
 from app.store import JobParams, Store
@@ -80,3 +84,64 @@ def test_unknown_voice_rejected_by_engine(engine: FakeTts) -> None:
     with pytest.raises(AppError) as err:
         engine.synthesize("x", "nope", 1.0, "en-us")
     assert err.value.code == "VOICE_NOT_FOUND"
+
+
+def test_cancel_during_encode_publishes_nothing(
+    settings: Settings, store: Store, engine: FakeTts, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    book_id = add_book(settings, store)
+    job = store.create_job(book_id, PARAMS)
+    real_encode = encode_mp3
+
+    def encode_then_cancel(
+        wav: Path, out: Path, bitrate_kbps: int, title: str, timeout_s: int = 1800
+    ) -> None:
+        real_encode(wav, out, bitrate_kbps, title, timeout_s)
+        store.transition(job.id, "cancelled")  # user cancels while FFmpeg runs
+
+    monkeypatch.setattr(worker, "encode_mp3", encode_then_cancel)
+    run_pending(store, engine, settings)
+    out_dir = book_dir(settings.audio_dir, book_id)
+    assert store.get_job(job.id).status == "cancelled"
+    assert not (out_dir / "audiobook.mp3").exists()
+    assert not (out_dir / "audiobook.mp3.part").exists()
+
+
+class CancelThenCrashTts(FakeTts):
+    def __init__(self, store: Store, job_id: str) -> None:
+        self.store, self.job_id = store, job_id
+
+    def synthesize(self, text: str, voice_id: str, speed: float, language: str) -> Audio:
+        self.store.transition(self.job_id, "cancelled")
+        raise RuntimeError("boom")
+
+
+def test_failure_after_cancel_keeps_cancelled_status(settings: Settings, store: Store) -> None:
+    job = store.create_job(add_book(settings, store), PARAMS)
+    run_pending(store, CancelThenCrashTts(store, job.id), settings)
+    assert store.get_job(job.id).status == "cancelled"
+
+
+class _StopLoopError(Exception):
+    pass
+
+
+def test_main_recovers_stale_job_runs_queued_then_idles(
+    settings: Settings, store: Store, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stale = store.create_job(add_book(settings, store), PARAMS)
+    store.transition(stale.id, "processing")  # a worker died mid-job
+    queued = store.create_job(add_book(settings, store), PARAMS)
+    monkeypatch.setenv("M2A_DATA_DIR", str(settings.data_dir))
+    monkeypatch.setenv("M2A_FAKE_TTS", "1")
+
+    def stop_when_idle(_seconds: float) -> None:
+        raise _StopLoopError
+
+    # Replace the name inside app.worker only: patching time.sleep globally would also
+    # break subprocess polling.
+    monkeypatch.setattr(worker, "time", SimpleNamespace(sleep=stop_when_idle))
+    with pytest.raises(_StopLoopError):
+        worker.main()
+    assert store.get_job(stale.id).error_code == "WORKER_RESTARTED"
+    assert store.get_job(queued.id).status == "completed"

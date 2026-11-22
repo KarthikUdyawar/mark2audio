@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup install hooks api worker test lint typecheck format check \
+.PHONY: help setup install hooks api worker test smoke lint typecheck format check \
         up down logs ci model trivy sonar tree status clean
 
 # ---------------------------------------------------------------------------
@@ -19,6 +19,11 @@ TREE_IGNORE := .git|backups|__pycache__|.venv|node_modules|.mypy_cache|.ruff_cac
 
 TRIVY_DIR ?= ../trivy-docker-scanner
 SONAR_HOST_URL ?= http://localhost:9000
+
+# Kokoro model pins, see docs/DECISION.md D-017 (the only place hashes live).
+MODEL_RELEASE := https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0
+MODEL_ONNX_SHA256 := 7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5
+MODEL_VOICES_SHA256 := bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d
 
 -include .env.tools
 
@@ -80,6 +85,9 @@ typecheck: ## run strict MyPy type checking
 test: ## run pytest
 	cd $(BACKEND_DIR) && uv run pytest
 
+smoke: ## real-model smoke test (needs make model and ffmpeg); shows skip reason
+	cd $(BACKEND_DIR) && uv run pytest tests/test_smoke_kokoro.py -rs --no-cov
+
 check: lint typecheck test ## complete local quality gate
 
 # ---------------------------------------------------------------------------
@@ -106,13 +114,13 @@ ci: ## run GitHub Actions backend job locally using act
 # Kokoro Model
 # ---------------------------------------------------------------------------
 
-model: ## download Kokoro ONNX model and voice data (one-time)
+model: ## download Kokoro ONNX model and voice data, verify sha256 (one-time)
 	mkdir -p $(MODEL_DIR)
-	curl -fL --retry 3 -o $(MODEL_DIR)/kokoro-v1.0.onnx \
-		https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
-	curl -fL --retry 3 -o $(MODEL_DIR)/voices-v1.0.bin \
-		https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
-	sha256sum $(MODEL_DIR)/*
+	curl -fL --retry 3 -o $(MODEL_DIR)/kokoro-v1.0.onnx $(MODEL_RELEASE)/kokoro-v1.0.onnx
+	curl -fL --retry 3 -o $(MODEL_DIR)/voices-v1.0.bin $(MODEL_RELEASE)/voices-v1.0.bin
+	cd $(MODEL_DIR) && printf '%s  %s\n' \
+		$(MODEL_ONNX_SHA256) kokoro-v1.0.onnx \
+		$(MODEL_VOICES_SHA256) voices-v1.0.bin | sha256sum -c -
 
 # ---------------------------------------------------------------------------
 # Optional Security Scanning
