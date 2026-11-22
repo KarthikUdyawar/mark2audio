@@ -18,7 +18,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T13 Test for `app/main.py` (test first)
 - [x] T14 Worker coverage gaps from `--cov-report=term-missing`
 - [x] T15 Pin GitHub Actions by commit SHA (confirm peeled commit with `^{}`)
-- [ ] T16 Review sprint diff (CLAUDE.md section 18), fix findings
+- [x] T16 Review sprint diff (CLAUDE.md section 18), fix findings (`4a5f3b9`)
 - [ ] T17 PR to `develop`, `release/v0.1.0` PR to `main`, tag `v0.1.0`, handoff
 
 Cut line if the sprint runs long: T15 first, then T10.
