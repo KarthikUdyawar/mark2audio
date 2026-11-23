@@ -4,7 +4,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 
 - [x] T0 Sprint S3 PRD and TODO, ROADMAP link
 - [x] T1 D-027 chapters table and durations (supersedes D-005)
-- [ ] T2 Migration runner: `user_version`, pre-migration copy, newer-DB refusal, race (test first)
+- [x] T2 Migration runner: `user_version`, pre-migration copy, newer-DB refusal, race (test first)
 - [ ] T3 Baseline `001` equals current schema; v0.2.0-shaped database adopted (test first)
 - [ ] T4 Migration `002`: `chapters` table, `books.duration_seconds` (test first)
 - [ ] T5 Store: write chapters at upload, read them, backfill old books (test first)
