@@ -10,7 +10,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T5 Store: write chapters at upload, read them, backfill old books (test first)
 - [x] T6 Worker: chapter start and duration, book duration on completion (test first)
 - [x] T7 Pydantic response models for all endpoints; OpenAPI has no untyped response (test first)
-- [ ] T8 API: `duration_seconds` on books, chapter durations in detail (test first)
+- [x] T8 API: `duration_seconds` on books, chapter durations in detail (test first)
 - [ ] T9 UI: durations in library and outline
 - [ ] T10 Upgrade a copy of a real v0.2.0 `data/` through Compose; record in ARCHITECTURE
 - [ ] T11 ARCHITECTURE, DESIGN, README, ROADMAP (FR-08 Built, S3 Done), `make tree`

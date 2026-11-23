@@ -58,6 +58,7 @@ class Book:
     chapter_count: int
     created_at: str
     status: str
+    duration_seconds: float | None = None
 
 
 @dataclass(frozen=True)
@@ -164,7 +165,7 @@ class Store:
             status = "uploaded"
         return Book(
             row["id"], row["title"], row["original_filename"], row["chapter_count"],
-            row["created_at"], status,
+            row["created_at"], status, row["duration_seconds"],
         )  # fmt: skip
 
     def delete_book(self, book_id: str) -> None:

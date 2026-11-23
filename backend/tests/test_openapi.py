@@ -12,7 +12,15 @@ from app.tts import FakeTts
 
 Json = dict[str, Any]
 CONVERT = {"voice_id": "fake_a", "language": "en-us", "speed": 1.0, "bitrate_kbps": 128}
-BOOK_KEYS = {"id", "title", "original_filename", "status", "chapter_count", "created_at"}
+BOOK_KEYS = {
+    "id",
+    "title",
+    "original_filename",
+    "status",
+    "chapter_count",
+    "created_at",
+    "duration_seconds",
+}
 JOB_KEYS = {
     "id",
     "book_id",
@@ -105,7 +113,12 @@ def test_response_field_names_are_unchanged(client: TestClient) -> None:
     assert set(job) == JOB_KEYS
     detail = client.get(f"/api/v1/books/{book['id']}").json()
     assert set(detail) == BOOK_KEYS | {"chapters", "latest_job"}
-    assert set(detail["chapters"][0]) == {"number", "title"}
+    assert set(detail["chapters"][0]) == {
+        "number",
+        "title",
+        "start_seconds",
+        "duration_seconds",
+    }
     assert set(detail["latest_job"]) == JOB_KEYS
     assert set(client.get("/api/v1/books").json()[0]) == BOOK_KEYS
     assert set(client.get("/api/v1/voices").json()[0]) == {"id", "name", "language", "available"}

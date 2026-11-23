@@ -69,7 +69,7 @@ def _book_out(book: Book) -> BookOut:
         {
             "id": book.id, "title": book.title, "original_filename": book.original_filename,
             "status": book.status, "chapter_count": book.chapter_count,
-            "created_at": book.created_at,
+            "created_at": book.created_at, "duration_seconds": book.duration_seconds,
         }
     )  # fmt: skip
 
@@ -147,7 +147,15 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
         latest = store.latest_job(book_id)
         return BookDetailOut(
             **_book_out(book).model_dump(),
-            chapters=[ChapterOut(number=r.number, title=r.title) for r in rows],
+            chapters=[
+                ChapterOut(
+                    number=r.number,
+                    title=r.title,
+                    start_seconds=r.start_seconds,
+                    duration_seconds=r.duration_seconds,
+                )
+                for r in rows
+            ],
             latest_job=_job_out(latest) if latest else None,
         )
 

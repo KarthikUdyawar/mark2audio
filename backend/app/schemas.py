@@ -40,11 +40,14 @@ class BookOut(BaseModel):
     status: BookStatus
     chapter_count: int
     created_at: str
+    duration_seconds: float | None
 
 
 class ChapterOut(BaseModel):
     number: int
     title: str
+    start_seconds: float | None
+    duration_seconds: float | None
 
 
 class BookDetailOut(BookOut):

@@ -169,3 +169,12 @@ def test_complete_job_on_cancelled_job_writes_nothing(store: Store) -> None:
     assert err.value.code == "INVALID_TRANSITION"
     assert [(r.title, r.duration_seconds) for r in store.get_chapters("b1")] == [("Old", None)]
     assert _book_duration(store, "b1") is None
+
+
+def test_book_exposes_stored_duration(store: Store) -> None:
+    assert store.get_book("b1").duration_seconds is None
+    job = store.create_job("b1", PARAMS)
+    store.transition(job.id, "processing")
+    store.complete_job(job.id, [ChapterRow(1, "A", 0.0, 1.0)], 3.6)
+    assert store.get_book("b1").duration_seconds == 3.6
+    assert [b.duration_seconds for b in store.list_books()] == [3.6]

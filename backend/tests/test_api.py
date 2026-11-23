@@ -185,10 +185,10 @@ def test_detail_reads_stored_chapters_and_never_overwrites_them(
     bid = str(upload(client)["id"])
     store.set_chapters(bid, ["X", "Y", "Z"])
     detail = client.get(f"/api/v1/books/{bid}").json()
-    assert detail["chapters"] == [
-        {"number": 1, "title": "X"},
-        {"number": 2, "title": "Y"},
-        {"number": 3, "title": "Z"},
+    assert [(c["number"], c["title"]) for c in detail["chapters"]] == [
+        (1, "X"),
+        (2, "Y"),
+        (3, "Z"),
     ]
     assert [r.title for r in store.get_chapters(bid)] == ["X", "Y", "Z"]
 
@@ -200,3 +200,22 @@ def test_detail_backfills_old_book_once(client: TestClient, store: Store) -> Non
     assert [c["title"] for c in detail["chapters"]] == ["My Book", "Part Two"]
     assert [r.title for r in store.get_chapters(bid)] == ["My Book", "Part Two"]
     assert store.get_book(bid).chapter_count == 2
+
+
+def test_durations_are_null_before_and_set_after_conversion(
+    client: TestClient, settings: Settings, store: Store, engine: FakeTts
+) -> None:
+    bid = str(upload(client)["id"])
+    before = client.get(f"/api/v1/books/{bid}").json()
+    assert before["duration_seconds"] is None
+    assert all(
+        c["start_seconds"] is None and c["duration_seconds"] is None for c in before["chapters"]
+    )
+    client.post(f"/api/v1/books/{bid}/convert", json=CONVERT)
+    run_pending(store, engine, settings)
+    listed = client.get("/api/v1/books").json()[0]
+    assert isinstance(listed["duration_seconds"], float) and listed["duration_seconds"] > 0
+    first, second = client.get(f"/api/v1/books/{bid}").json()["chapters"]
+    assert first["start_seconds"] == 0.0 and first["duration_seconds"] > 0
+    assert second["start_seconds"] == pytest.approx(first["duration_seconds"])
+    assert second["duration_seconds"] > 0
