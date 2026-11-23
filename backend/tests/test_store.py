@@ -111,3 +111,27 @@ def test_create_job_for_unknown_book_is_not_found(store: Store) -> None:
     with pytest.raises(AppError) as err:
         store.create_job(str(uuid.uuid4()), params)
     assert err.value.code == "BOOK_NOT_FOUND" and err.value.status == 404
+
+
+def test_create_book_with_chapters_writes_rows(store: Store) -> None:
+    store.create_book("b2", "T", "t.md", 2, ["Same", "Same"])
+    rows = store.get_chapters("b2")
+    assert [(r.number, r.title) for r in rows] == [(1, "Same"), (2, "Same")]
+    assert all(r.start_seconds is None and r.duration_seconds is None for r in rows)
+
+
+def test_set_chapters_replaces_rows_and_count(store: Store) -> None:
+    store.set_chapters("b1", ["X", "Y", "Z"])
+    store.set_chapters("b1", ["Q"])
+    assert [(r.number, r.title) for r in store.get_chapters("b1")] == [(1, "Q")]
+    assert store.get_book("b1").chapter_count == 1
+
+
+def test_set_chapters_unknown_book_is_not_found(store: Store) -> None:
+    with pytest.raises(AppError) as err:
+        store.set_chapters("nope", ["A"])
+    assert err.value.code == "BOOK_NOT_FOUND"
+
+
+def test_get_chapters_without_rows_is_empty(store: Store) -> None:
+    assert store.get_chapters("b1") == []

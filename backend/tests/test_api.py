@@ -122,8 +122,11 @@ def test_bad_ids_are_404_never_500(client: TestClient) -> None:
         assert client.get("/api/v1" + path).status_code == 404
 
 
-def test_detail_with_missing_source_is_stable_error(client: TestClient, settings: Settings) -> None:
+def test_detail_with_missing_source_is_stable_error(
+    client: TestClient, settings: Settings, store: Store
+) -> None:
     bid = str(upload(client)["id"])
+    store.set_chapters(bid, [])  # old book: no chapter rows, so detail must read the source
     (settings.uploads_dir / bid / "source.md").unlink()
     res = client.get(f"/api/v1/books/{bid}")
     assert res.status_code == 500 and res.json()["error"]["code"] == "SOURCE_MISSING"
@@ -166,3 +169,34 @@ def test_disk_full_on_upload_is_stable_error(
     res = client.post("/api/v1/books/upload", files={"file": ("a.md", MD)})
     assert res.status_code == 507 and res.json()["error"]["code"] == "DISK_FULL"
     assert list(settings.uploads_dir.iterdir()) == []  # disk_full leaves no orphan
+
+
+def test_upload_writes_chapter_rows(client: TestClient, store: Store) -> None:
+    bid = str(upload(client)["id"])
+    assert [(r.number, r.title) for r in store.get_chapters(bid)] == [
+        (1, "My Book"),
+        (2, "Part Two"),
+    ]
+
+
+def test_detail_reads_stored_chapters_and_never_overwrites_them(
+    client: TestClient, store: Store
+) -> None:
+    bid = str(upload(client)["id"])
+    store.set_chapters(bid, ["X", "Y", "Z"])
+    detail = client.get(f"/api/v1/books/{bid}").json()
+    assert detail["chapters"] == [
+        {"number": 1, "title": "X"},
+        {"number": 2, "title": "Y"},
+        {"number": 3, "title": "Z"},
+    ]
+    assert [r.title for r in store.get_chapters(bid)] == ["X", "Y", "Z"]
+
+
+def test_detail_backfills_old_book_once(client: TestClient, store: Store) -> None:
+    bid = str(upload(client)["id"])
+    store.set_chapters(bid, [])  # shape of a book uploaded before S3
+    detail = client.get(f"/api/v1/books/{bid}").json()
+    assert [c["title"] for c in detail["chapters"]] == ["My Book", "Part Two"]
+    assert [r.title for r in store.get_chapters(bid)] == ["My Book", "Part Two"]
+    assert store.get_book(bid).chapter_count == 2

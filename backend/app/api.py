@@ -99,7 +99,7 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
         folder.mkdir(parents=True)
         try:
             (folder / "source.md").write_text(text, encoding="utf-8")
-            store.create_book(book_id, title, display, len(chapters))
+            store.create_book(book_id, title, display, len(chapters), [c.title for c in chapters])
         except BaseException as err:
             shutil.rmtree(folder, ignore_errors=True)  # no orphan upload on failure
             full = as_disk_full(err)
@@ -115,11 +115,15 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
     @api.get("/books/{book_id}")
     def book_detail(book_id: str) -> dict[str, object]:
         book = store.get_book(book_id)
-        chapters = parse_markdown(read_source(book_id))
+        rows = store.get_chapters(book_id)
+        if not rows:  # book uploaded before S3: backfill once from the source
+            store.set_chapters(book_id, [c.title for c in parse_markdown(read_source(book_id))])
+            rows = store.get_chapters(book_id)
+            book = store.get_book(book_id)
         latest = store.latest_job(book_id)
         return {
             **_book_json(book),
-            "chapters": [{"number": i + 1, "title": c.title} for i, c in enumerate(chapters)],
+            "chapters": [{"number": r.number, "title": r.title} for r in rows],
             "latest_job": _job_json(latest) if latest else None,
         }
 

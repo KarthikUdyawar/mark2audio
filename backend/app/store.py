@@ -1,7 +1,7 @@
 """SQLite persistence: books, conversion jobs, validated state machine, atomic claiming."""
 
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -60,6 +60,14 @@ class Book:
     status: str
 
 
+@dataclass(frozen=True)
+class ChapterRow:
+    number: int
+    title: str
+    start_seconds: float | None
+    duration_seconds: float | None
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -94,13 +102,46 @@ class Store:
             db.close()
 
     # --- books ---
-    def create_book(self, book_id: str, title: str, filename: str, chapter_count: int) -> None:
+    def create_book(
+        self,
+        book_id: str,
+        title: str,
+        filename: str,
+        chapter_count: int,
+        chapters: Sequence[str] = (),
+    ) -> None:
         with self._tx() as db:
             db.execute(
                 "INSERT INTO books (id, title, original_filename, chapter_count, created_at) "
                 "VALUES (?,?,?,?,?)",
                 (book_id, title, filename, chapter_count, _now()),
             )
+            self._insert_chapters(db, book_id, chapters)
+
+    @staticmethod
+    def _insert_chapters(db: sqlite3.Connection, book_id: str, titles: Sequence[str]) -> None:
+        db.executemany(
+            "INSERT INTO chapters (book_id, number, title) VALUES (?,?,?)",
+            [(book_id, number, title) for number, title in enumerate(titles, start=1)],
+        )
+
+    def set_chapters(self, book_id: str, titles: Sequence[str]) -> None:
+        """Replace all chapter rows of a book and keep books.chapter_count in step."""
+        with self._tx() as db:
+            if db.execute("SELECT 1 FROM books WHERE id=?", (book_id,)).fetchone() is None:
+                raise AppError("BOOK_NOT_FOUND", "Book not found.", 404)
+            db.execute("DELETE FROM chapters WHERE book_id=?", (book_id,))
+            self._insert_chapters(db, book_id, titles)
+            db.execute("UPDATE books SET chapter_count=? WHERE id=?", (len(titles), book_id))
+
+    def get_chapters(self, book_id: str) -> list[ChapterRow]:
+        with self._tx() as db:
+            rows = db.execute(
+                "SELECT number, title, start_seconds, duration_seconds FROM chapters "
+                "WHERE book_id=? ORDER BY number",
+                (book_id,),
+            ).fetchall()
+        return [ChapterRow(**dict(r)) for r in rows]
 
     _BOOK_SQL = """SELECT b.*, (SELECT status FROM jobs j WHERE j.book_id=b.id
                    ORDER BY j.created_at DESC, j.rowid DESC LIMIT 1) AS job_status FROM books b"""
