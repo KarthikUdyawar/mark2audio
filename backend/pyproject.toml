@@ -21,7 +21,7 @@ dev = [ "httpx2>=2.16", "mypy>=1.11", "pre-commit>=4", "pytest>=8", "pytest-cov>
 
 [tool.setuptools]
 packages.find.include = [ "app*" ]
-package-data.app = [ "static/*" ]
+package-data.app = [ "migrations/*", "static/*" ]
 
 [tool.ruff]
 line-length = 100

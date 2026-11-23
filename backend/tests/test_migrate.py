@@ -8,6 +8,7 @@ import pytest
 
 from app.errors import AppError
 from app.migrate import migrate
+from app.store import Store
 
 
 def _write(folder: Path, files: dict[str, str]) -> Path:
@@ -133,3 +134,76 @@ def test_concurrent_first_run_applies_once(tmp_path: Path) -> None:
         assert db.execute("SELECT COUNT(*) FROM a").fetchone()[0] == 1
     finally:
         db.close()
+
+
+# Frozen v0.2.0 schema: the database shape that existing installs carry.
+V020_SCHEMA = """
+CREATE TABLE books (
+  id TEXT PRIMARY KEY, title TEXT NOT NULL, original_filename TEXT NOT NULL,
+  chapter_count INTEGER NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE jobs (
+  id TEXT PRIMARY KEY,
+  book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+  status TEXT NOT NULL, voice_id TEXT NOT NULL, language TEXT NOT NULL, speed REAL NOT NULL,
+  bitrate_kbps INTEGER NOT NULL, include_code_blocks INTEGER NOT NULL,
+  total_chunks INTEGER NOT NULL DEFAULT 0, completed_chunks INTEGER NOT NULL DEFAULT 0,
+  progress_percent INTEGER NOT NULL DEFAULT 0, current_chapter TEXT,
+  error_code TEXT, error_message TEXT,
+  created_at TEXT NOT NULL, started_at TEXT, completed_at TEXT);
+"""
+STAMP = "2026-01-01T00:00:00+00:00"
+
+
+def _seed_v020(path: Path) -> None:
+    db = sqlite3.connect(path)
+    db.executescript(V020_SCHEMA)
+    db.execute("INSERT INTO books VALUES ('b1','T','t.md',1,?)", (STAMP,))
+    db.execute(
+        "INSERT INTO jobs (id,book_id,status,voice_id,language,speed,bitrate_kbps,"
+        "include_code_blocks,created_at) VALUES ('j1','b1','completed','v','en-us',1.0,192,0,?)",
+        (STAMP,),
+    )
+    db.commit()
+    db.close()
+
+
+def test_fresh_store_is_at_baseline(tmp_path: Path) -> None:
+    path = tmp_path / "app.db"
+    Store(path)
+    assert _version(path) == 1
+    assert {"books", "jobs"} <= _tables(path)
+
+
+def test_v020_database_is_adopted_unchanged(tmp_path: Path) -> None:
+    path = tmp_path / "app.db"
+    _seed_v020(path)
+    store = Store(path)
+    assert store.get_book("b1").status == "completed"
+    assert store.get_job("j1").status == "completed"
+    assert _version(path) == 1
+    backup = tmp_path / "app.db.pre-v1"
+    assert backup.exists()
+    assert _version(backup) == 0
+
+
+def test_concurrent_stores_adopt_once(tmp_path: Path) -> None:
+    path = tmp_path / "app.db"
+    _seed_v020(path)
+    errors: list[BaseException] = []
+
+    def start() -> None:
+        try:
+            Store(path)
+        except BaseException as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=start) for _ in range(6)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == []
+    assert _version(path) == 1
+    backups = list(tmp_path.glob("app.db.pre-v*"))
+    assert backups == [tmp_path / "app.db.pre-v1"]
+    assert _version(backups[0]) == 0  # taken before the first migration, never after

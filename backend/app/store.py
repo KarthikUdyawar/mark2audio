@@ -9,21 +9,9 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.errors import AppError
+from app.migrate import migrate
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS books (
-  id TEXT PRIMARY KEY, title TEXT NOT NULL, original_filename TEXT NOT NULL,
-  chapter_count INTEGER NOT NULL, created_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS jobs (
-  id TEXT PRIMARY KEY,
-  book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-  status TEXT NOT NULL, voice_id TEXT NOT NULL, language TEXT NOT NULL, speed REAL NOT NULL,
-  bitrate_kbps INTEGER NOT NULL, include_code_blocks INTEGER NOT NULL,
-  total_chunks INTEGER NOT NULL DEFAULT 0, completed_chunks INTEGER NOT NULL DEFAULT 0,
-  progress_percent INTEGER NOT NULL DEFAULT 0, current_chapter TEXT,
-  error_code TEXT, error_message TEXT,
-  created_at TEXT NOT NULL, started_at TEXT, completed_at TEXT);
-"""
+MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 ALLOWED = {
     "queued": {"processing", "cancelled"},
     "processing": {"completed", "failed", "cancelled"},
@@ -83,9 +71,7 @@ def _job(row: sqlite3.Row) -> Job:
 class Store:
     def __init__(self, path: Path) -> None:
         self._path = path
-        db = self._connect()
-        db.executescript(SCHEMA)
-        db.close()
+        migrate(path, MIGRATIONS_DIR)
 
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self._path, timeout=30, isolation_level=None)
