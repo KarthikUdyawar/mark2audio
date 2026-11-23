@@ -167,12 +167,19 @@
       return body;
     }
 
+    function fmtDuration(seconds) {
+      const total = Math.round(seconds), h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60), s = String(total % 60).padStart(2, "0");
+      return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+    }
+
     async function loadBooks() {
       const list = $("#books"); list.replaceChildren();
       for (const b of await api("/books")) {
         const li = document.createElement("li"); li.className = "book";
         const btn = document.createElement("button");
-        btn.textContent = `${b.title} (${b.status})`; btn.onclick = () => openBook(b.id);
+        const len = b.duration_seconds == null ? "" : `, ${fmtDuration(b.duration_seconds)}`;
+        btn.textContent = `${b.title} (${b.status}${len})`; btn.onclick = () => openBook(b.id);
         li.append(btn); list.append(li);
       }
     }
@@ -196,7 +203,8 @@
       $("#chapters").replaceChildren(
         ...book.chapters.map((chapter) => {
           const li = document.createElement("li");
-          li.textContent = chapter.title || "Untitled chapter";
+          const len = chapter.duration_seconds == null ? "" : ` · ${fmtDuration(chapter.duration_seconds)}`;
+          li.textContent = (chapter.title || "Untitled chapter") + len;
           return li;
         })
       );
