@@ -268,3 +268,26 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
   PostgreSQL or an object store are opt-in (pytest marker, compose service) and never part of the
   default gate or of CI's default job.
 - Consequence: a SQLite fallback is not accepted as a stand-in for PostgreSQL tests.
+
+## D-027 — Chapters table and stored durations
+
+- Date: 2026-11-24 · Status: accepted · Supersedes the "no chapter table" part of
+  [D-005](#d-005--derived-book-status-no-chapter-table) (derived book status stays)
+- Context: FR-08 needs durations, and chapter export (S4) needs per-chapter data. Chapters are
+  parsed on every use and never stored.
+- Decision: migration `002` adds table `chapters` (`book_id` cascade, `number`, `title` TEXT NOT
+  NULL DEFAULT '', `start_seconds` REAL NULL, `duration_seconds` REAL NULL; primary key
+  `book_id, number`) and column `books.duration_seconds` REAL NULL.
+  - Rows are written at upload, parsed with `include_code=False`. Books uploaded before S3 are
+    backfilled once from `source.md`; a book that already has rows is left unchanged.
+  - Start and duration stay NULL until a conversion completes. Backfill does not probe old audio.
+  - On completion the worker replaces all chapter rows of the book from its own chapter list
+    (the job's `include_code_blocks` applies) and sets `books.chapter_count` and
+    `books.duration_seconds`, in the same transaction as the `completed` transition. A
+    reconversion overwrites them.
+  - A failed or cancelled job writes nothing, so the previous audio keeps its previous durations.
+  - Chapter durations come from samples per chunk. The book duration comes from `probe_mp3`, so
+    the chapter sum can differ slightly (MP3 padding). Silence after a chunk belongs to the
+    chapter that precedes it.
+- Consequence: per-chapter audio (S4) can build on stored boundaries. Duplicate chapter titles
+  stay separate rows, keyed by `number`.
