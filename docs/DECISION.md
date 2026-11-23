@@ -291,3 +291,21 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
     chapter that precedes it.
 - Consequence: per-chapter audio (S4) can build on stored boundaries. Duplicate chapter titles
   stay separate rows, keyed by `number`.
+
+## D-028 — Migration runner and completion details
+
+- Date: 2026-11-24 · Status: accepted · Refines [D-023](#d-023--versioned-sql-migrations) and
+  [D-027](#d-027--chapters-table-and-stored-durations)
+- Decision:
+  - One `BEGIN IMMEDIATE` covers all pending migrations; any failure rolls back all and leaves
+    `user_version` unchanged. Statements run one by one (`executescript` would COMMIT).
+  - One backup per run, taken under the lock, only if the database already has tables, named
+    `<db>.pre-v<final version>`. A v0.2.0 database gets `.pre-v2`.
+  - A database newer than the highest migration file raises `DB_TOO_NEW` (500).
+  - Chapter rows are written with the book at upload (`include_code=False`). Old books are
+    backfilled lazily on `GET /books/{id}` when they have no rows.
+  - `Store.complete_job` finishes a job, replaces chapter rows and sets `chapter_count` and
+    `duration_seconds` in one transaction; a cancelled job writes nothing.
+  - Router-level `responses` document one error shape; the default 422 schema is replaced.
+- Consequence: schema changes are new numbered files with tests. Chapter sum and probed MP3
+  length may differ slightly (padding).
