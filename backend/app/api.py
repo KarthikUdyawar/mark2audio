@@ -16,12 +16,23 @@ from pydantic import BaseModel, Field
 from app.config import Settings
 from app.errors import AppError, as_disk_full
 from app.parser import INTRO_TITLE, parse_markdown
+from app.schemas import (
+    BookDetailOut,
+    BookOut,
+    ChapterOut,
+    ErrorResponse,
+    HealthOut,
+    JobErrorOut,
+    JobOut,
+    VoiceOut,
+)
 from app.storage import book_dir, remove_tree
 from app.store import Book, Job, JobParams, Store
 from app.tts import SPEED_RANGE, TtsEngine
 
 STATIC = Path(__file__).parent / "static"
 log = logging.getLogger("mark2audio.api")
+ERROR_STATUSES = (400, 404, 409, 413, 422, 500, 503, 507)
 
 
 class ConvertRequest(BaseModel):
@@ -41,26 +52,37 @@ def _slug(title: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", title).strip("_")[:80] or "audiobook"
 
 
-def _job_json(job: Job) -> dict[str, object]:
-    error = {"code": job.error_code, "message": job.error_message} if job.error_code else None
-    return {
-        "id": job.id, "book_id": job.book_id, "status": job.status,
-        "progress_percent": job.progress_percent, "completed_chunks": job.completed_chunks,
-        "total_chunks": job.total_chunks, "current_chapter": job.current_chapter, "error": error,
-    }  # fmt: skip
+def _job_out(job: Job) -> JobOut:
+    error = JobErrorOut(code=job.error_code, message=job.error_message) if job.error_code else None
+    return JobOut.model_validate(
+        {
+            "id": job.id, "book_id": job.book_id, "status": job.status,
+            "progress_percent": job.progress_percent, "completed_chunks": job.completed_chunks,
+            "total_chunks": job.total_chunks, "current_chapter": job.current_chapter,
+            "error": error,
+        }
+    )  # fmt: skip
 
 
-def _book_json(book: Book) -> dict[str, object]:
-    return {
-        "id": book.id, "title": book.title, "original_filename": book.original_filename,
-        "status": book.status, "chapter_count": book.chapter_count, "created_at": book.created_at,
-    }  # fmt: skip
+def _book_out(book: Book) -> BookOut:
+    return BookOut.model_validate(
+        {
+            "id": book.id, "title": book.title, "original_filename": book.original_filename,
+            "status": book.status, "chapter_count": book.chapter_count,
+            "created_at": book.created_at,
+        }
+    )  # fmt: skip
 
 
 def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
     settings.ensure_dirs()
     store = Store(settings.db_path)
-    api = APIRouter(prefix="/api/v1")
+    api = APIRouter(
+        prefix="/api/v1",
+        responses={
+            code: {"model": ErrorResponse, "description": "Error"} for code in ERROR_STATUSES
+        },
+    )
 
     def read_source(book_id: str) -> str:
         try:
@@ -71,12 +93,14 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
             raise AppError("SOURCE_MISSING", "Book source file is missing.", 500) from None
 
     @api.get("/health")
-    def health() -> dict[str, object]:
+    def health() -> HealthOut:
         ok = bool(shutil.which("ffmpeg") and shutil.which("ffprobe"))
-        return {"status": "ok" if ok else "degraded", "ffmpeg": ok, "voices": len(engine.voices())}
+        return HealthOut.model_validate(
+            {"status": "ok" if ok else "degraded", "ffmpeg": ok, "voices": len(engine.voices())}
+        )
 
     @api.post("/books/upload", status_code=201)
-    def upload(file: Annotated[UploadFile, File()]) -> dict[str, object]:
+    def upload(file: Annotated[UploadFile, File()]) -> BookOut:
         display = _display_name(file.filename)
         if Path(display).suffix.lower() not in {".md", ".markdown"}:
             raise AppError("UNSUPPORTED_TYPE", "Only .md and .markdown files are supported.")
@@ -106,14 +130,14 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
             if full is None:
                 raise
             raise full from err
-        return _book_json(store.get_book(book_id))
+        return _book_out(store.get_book(book_id))
 
     @api.get("/books")
-    def list_books() -> list[dict[str, object]]:
-        return [_book_json(b) for b in store.list_books()]
+    def list_books() -> list[BookOut]:
+        return [_book_out(b) for b in store.list_books()]
 
     @api.get("/books/{book_id}")
-    def book_detail(book_id: str) -> dict[str, object]:
+    def book_detail(book_id: str) -> BookDetailOut:
         book = store.get_book(book_id)
         rows = store.get_chapters(book_id)
         if not rows:  # book uploaded before S3: backfill once from the source
@@ -121,11 +145,11 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
             rows = store.get_chapters(book_id)
             book = store.get_book(book_id)
         latest = store.latest_job(book_id)
-        return {
-            **_book_json(book),
-            "chapters": [{"number": r.number, "title": r.title} for r in rows],
-            "latest_job": _job_json(latest) if latest else None,
-        }
+        return BookDetailOut(
+            **_book_out(book).model_dump(),
+            chapters=[ChapterOut(number=r.number, title=r.title) for r in rows],
+            latest_job=_job_out(latest) if latest else None,
+        )
 
     @api.delete("/books/{book_id}", status_code=204)
     def delete_book(book_id: str) -> Response:
@@ -136,14 +160,14 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
         return Response(status_code=204)
 
     @api.get("/voices")
-    def voices() -> list[dict[str, object]]:
+    def voices() -> list[VoiceOut]:
         return [
-            {"id": v.id, "name": v.name, "language": v.language, "available": True}
+            VoiceOut(id=v.id, name=v.name, language=v.language, available=True)
             for v in engine.voices()
         ]
 
     @api.post("/books/{book_id}/convert", status_code=202)
-    def convert(book_id: str, req: ConvertRequest) -> dict[str, object]:
+    def convert(book_id: str, req: ConvertRequest) -> JobOut:
         store.get_book(book_id)
         installed = {v.id: v for v in engine.voices()}
         if not installed:
@@ -156,18 +180,24 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
         params = JobParams(
             voice.id, voice.language, req.speed, req.bitrate_kbps, req.include_code_blocks
         )
-        return _job_json(store.create_job(book_id, params))
+        return _job_out(store.create_job(book_id, params))
 
     @api.get("/jobs/{job_id}")
-    def job_status(job_id: str) -> dict[str, object]:
-        return _job_json(store.get_job(job_id))
+    def job_status(job_id: str) -> JobOut:
+        return _job_out(store.get_job(job_id))
 
     @api.post("/jobs/{job_id}/cancel")
-    def cancel(job_id: str) -> dict[str, object]:
+    def cancel(job_id: str) -> JobOut:
         store.transition(job_id, "cancelled")
-        return _job_json(store.get_job(job_id))
+        return _job_out(store.get_job(job_id))
 
-    @api.get("/books/{book_id}/audio")
+    @api.get(
+        "/books/{book_id}/audio",
+        response_class=FileResponse,
+        responses={
+            200: {"content": {"audio/mpeg": {"schema": {"type": "string", "format": "binary"}}}}
+        },
+    )
     def audio(book_id: str) -> FileResponse:
         book = store.get_book(book_id)
         path = book_dir(settings.audio_dir, book_id) / "audiobook.mp3"
