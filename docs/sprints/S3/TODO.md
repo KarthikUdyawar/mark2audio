@@ -6,7 +6,7 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T1 D-027 chapters table and durations (supersedes D-005)
 - [x] T2 Migration runner: `user_version`, pre-migration copy, newer-DB refusal, race (test first)
 - [x] T3 Baseline `001` equals current schema; v0.2.0-shaped database adopted (test first)
-- [ ] T4 Migration `002`: `chapters` table, `books.duration_seconds` (test first)
+- [x] T4 Migration `002`: `chapters` table, `books.duration_seconds` (test first)
 - [ ] T5 Store: write chapters at upload, read them, backfill old books (test first)
 - [ ] T6 Worker: chapter start and duration, book duration on completion (test first)
 - [ ] T7 Pydantic response models for all endpoints; OpenAPI has no untyped response (test first)

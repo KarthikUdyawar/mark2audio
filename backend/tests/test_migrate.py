@@ -170,7 +170,7 @@ def _seed_v020(path: Path) -> None:
 def test_fresh_store_is_at_baseline(tmp_path: Path) -> None:
     path = tmp_path / "app.db"
     Store(path)
-    assert _version(path) == 1
+    assert _version(path) == 2
     assert {"books", "jobs"} <= _tables(path)
 
 
@@ -180,8 +180,8 @@ def test_v020_database_is_adopted_unchanged(tmp_path: Path) -> None:
     store = Store(path)
     assert store.get_book("b1").status == "completed"
     assert store.get_job("j1").status == "completed"
-    assert _version(path) == 1
-    backup = tmp_path / "app.db.pre-v1"
+    assert _version(path) == 2
+    backup = tmp_path / "app.db.pre-v2"
     assert backup.exists()
     assert _version(backup) == 0
 
@@ -203,7 +203,59 @@ def test_concurrent_stores_adopt_once(tmp_path: Path) -> None:
     for t in threads:
         t.join()
     assert errors == []
-    assert _version(path) == 1
+    assert _version(path) == 2
     backups = list(tmp_path.glob("app.db.pre-v*"))
-    assert backups == [tmp_path / "app.db.pre-v1"]
+    assert backups == [tmp_path / "app.db.pre-v2"]
     assert _version(backups[0]) == 0  # taken before the first migration, never after
+
+
+def _columns(path: Path, table: str) -> list[str]:
+    db = sqlite3.connect(path)
+    try:
+        return [r[1] for r in db.execute(f"PRAGMA table_info({table})")]
+    finally:
+        db.close()
+
+
+def test_fresh_store_has_chapters_and_book_duration(tmp_path: Path) -> None:
+    path = tmp_path / "app.db"
+    Store(path)
+    assert _columns(path, "chapters") == [
+        "book_id", "number", "title", "start_seconds", "duration_seconds",
+    ]  # fmt: skip
+    assert "duration_seconds" in _columns(path, "books")
+
+
+def test_v020_adoption_keeps_rows_and_leaves_new_data_empty(tmp_path: Path) -> None:
+    path = tmp_path / "app.db"
+    _seed_v020(path)
+    Store(path)
+    db = sqlite3.connect(path)
+    try:
+        assert db.execute("SELECT duration_seconds FROM books WHERE id='b1'").fetchone() == (None,)
+        assert db.execute("SELECT COUNT(*) FROM chapters").fetchone() == (0,)
+        assert db.execute("SELECT COUNT(*) FROM jobs").fetchone() == (1,)
+    finally:
+        db.close()
+
+
+def test_chapter_rows_cascade_and_allow_duplicate_titles(tmp_path: Path) -> None:
+    path = tmp_path / "app.db"
+    store = Store(path)
+    store.create_book("b1", "T", "t.md", 2)
+    db = sqlite3.connect(path)
+    db.execute("PRAGMA foreign_keys=ON")
+    try:
+        db.execute("INSERT INTO chapters (book_id, number, title) VALUES ('b1', 1, 'Same')")
+        db.execute("INSERT INTO chapters (book_id, number, title) VALUES ('b1', 2, 'Same')")
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute("INSERT INTO chapters (book_id, number, title) VALUES ('b1', 2, 'X')")
+        db.commit()
+    finally:
+        db.close()
+    store.delete_book("b1")
+    db = sqlite3.connect(path)
+    try:
+        assert db.execute("SELECT COUNT(*) FROM chapters").fetchone() == (0,)
+    finally:
+        db.close()

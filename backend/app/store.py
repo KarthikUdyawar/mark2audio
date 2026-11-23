@@ -97,7 +97,8 @@ class Store:
     def create_book(self, book_id: str, title: str, filename: str, chapter_count: int) -> None:
         with self._tx() as db:
             db.execute(
-                "INSERT INTO books VALUES (?,?,?,?,?)",
+                "INSERT INTO books (id, title, original_filename, chapter_count, created_at) "
+                "VALUES (?,?,?,?,?)",
                 (book_id, title, filename, chapter_count, _now()),
             )
 
