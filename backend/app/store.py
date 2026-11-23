@@ -236,6 +236,33 @@ class Store:
                 (to, error_code, error_message, done, to, job_id),
             )
 
+    def complete_job(
+        self, job_id: str, rows: Sequence[ChapterRow], duration_seconds: float
+    ) -> None:
+        """Finish a job and store chapter timing and book duration in one transaction."""
+        with self._tx() as db:
+            row = db.execute("SELECT status, book_id FROM jobs WHERE id=?", (job_id,)).fetchone()
+            if row is None:
+                raise AppError("JOB_NOT_FOUND", "Job not found.", 404)
+            if "completed" not in ALLOWED.get(row["status"], set()):
+                raise AppError("INVALID_TRANSITION", f"Cannot go {row['status']} → completed.", 409)
+            book_id = row["book_id"]
+            db.execute(
+                "UPDATE jobs SET status='completed', progress_percent=100, completed_at=? "
+                "WHERE id=?",
+                (_now(), job_id),
+            )
+            db.execute("DELETE FROM chapters WHERE book_id=?", (book_id,))
+            db.executemany(
+                "INSERT INTO chapters (book_id, number, title, start_seconds, duration_seconds) "
+                "VALUES (?,?,?,?,?)",
+                [(book_id, r.number, r.title, r.start_seconds, r.duration_seconds) for r in rows],
+            )
+            db.execute(
+                "UPDATE books SET chapter_count=?, duration_seconds=? WHERE id=?",
+                (len(rows), duration_seconds, book_id),
+            )
+
     def set_progress(self, job_id: str, completed: int, total: int, chapter: str) -> None:
         percent = min(completed * 100 // max(total, 1), PROGRESS_CAP_BEFORE_PUBLISH)
         with self._tx() as db:

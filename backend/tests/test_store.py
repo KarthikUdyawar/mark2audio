@@ -6,7 +6,7 @@ import pytest
 
 from app.errors import AppError
 from app.storage import book_dir
-from app.store import JobParams, Store
+from app.store import ChapterRow, JobParams, Store
 
 PARAMS = JobParams(
     voice_id="v", language="en-us", speed=1.0, bitrate_kbps=192, include_code_blocks=False
@@ -135,3 +135,37 @@ def test_set_chapters_unknown_book_is_not_found(store: Store) -> None:
 
 def test_get_chapters_without_rows_is_empty(store: Store) -> None:
     assert store.get_chapters("b1") == []
+
+
+def _book_duration(store: Store, book_id: str) -> float | None:
+    db = store._connect()
+    try:
+        return db.execute(  # type: ignore[no-any-return]
+            "SELECT duration_seconds FROM books WHERE id=?", (book_id,)
+        ).fetchone()[0]
+    finally:
+        db.close()
+
+
+def test_complete_job_writes_timing_and_completes_atomically(store: Store) -> None:
+    job = store.create_job("b1", PARAMS)
+    store.transition(job.id, "processing")
+    rows = [ChapterRow(1, "A", 0.0, 1.5), ChapterRow(2, "A", 1.5, 2.0)]
+    store.complete_job(job.id, rows, 3.6)
+    done = store.get_job(job.id)
+    assert (done.status, done.progress_percent) == ("completed", 100)
+    assert store.get_chapters("b1") == rows
+    assert store.get_book("b1").chapter_count == 2
+    assert _book_duration(store, "b1") == 3.6
+
+
+def test_complete_job_on_cancelled_job_writes_nothing(store: Store) -> None:
+    store.set_chapters("b1", ["Old"])
+    job = store.create_job("b1", PARAMS)
+    store.transition(job.id, "processing")
+    store.transition(job.id, "cancelled")
+    with pytest.raises(AppError) as err:
+        store.complete_job(job.id, [ChapterRow(1, "New", 0.0, 1.0)], 1.0)
+    assert err.value.code == "INVALID_TRANSITION"
+    assert [(r.title, r.duration_seconds) for r in store.get_chapters("b1")] == [("Old", None)]
+    assert _book_duration(store, "b1") is None
