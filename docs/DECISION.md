@@ -214,3 +214,98 @@ D-001 to D-005 were recorded retroactively from the MVP baseline (commit `cd46e5
 - Decision: keep plain dict responses. Recorded as a deviation, not rewritten.
 - Consequence: no response schema in OpenAPI. Revisit if the UI is rewritten in TypeScript
   ([D-003](#d-003--vanilla-js-ui-served-by-the-api)), where typed responses matter.
+
+## D-022 — SQLite and local disk stay the defaults; infrastructure lab is optional
+
+- Date: 2026-11-22 · Status: accepted
+- Context: three independent design reviews of the idea "PostgreSQL, Garage (S3) and React/TS"
+  agreed that none solves a product problem for one user on one machine, and that object storage
+  adds failure modes because FFmpeg needs local files anyway. The maintainer also wants to learn
+  these technologies.
+- Decision: SQLite and local disk are the defaults until a real requirement appears (multi-user,
+  multi-machine, concurrent workers). PostgreSQL and S3-compatible storage may be added only as
+  optional compose profiles in lab sprints, each with its own PRD and decision. The default
+  install and the offline worker proof (`network_mode: none`) stay unchanged. No repository or
+  storage interface is built before a second implementation is.
+- Consequence: this changes technical rules Architecture and scope 3 and 4 in
+  [ARCHITECTURE.md](ARCHITECTURE.md#technical-rules) for the optional profiles only. The lab
+  track is in [ROADMAP.md](ROADMAP.md#lab-track-optional).
+
+## D-023 — Versioned SQL migrations
+
+- Date: 2026-11-22 · Status: accepted · Supersedes the "no migration tool" part of
+  [D-004](#d-004--stdlib-sqlite3-no-orm-or-migration-tool) (stdlib `sqlite3` stays)
+- Decision: ordered `.sql` files in `backend/app/migrations/`, tracked by `PRAGMA user_version`.
+  A pending migration runs inside `BEGIN IMMEDIATE` and re-reads the version there, because the
+  api and the worker both start the store. Before applying any migration to an existing database,
+  the file is copied to `mark2audio.db.pre-vN`. A database newer than the code refuses to start.
+  No Alembic, no ORM.
+- Consequence: every schema change is a new numbered file with a test. The baseline migration
+  keeps `CREATE TABLE IF NOT EXISTS`, so existing v0.2.0 databases are adopted unchanged.
+
+## D-024 — Pydantic response models
+
+- Date: 2026-11-22 · Status: accepted · Supersedes [D-021](#d-021--api-responses-stay-plain-dicts)
+- Context: plain dict responses leave no response schema in OpenAPI, which blocks a generated
+  TypeScript client.
+- Decision: every public endpoint declares a `response_model`, and the error shape is documented
+  in OpenAPI. Field names and values of existing responses do not change.
+- Consequence: API rule 2 is met. Done in S3.
+
+## D-025 — React/TypeScript approved for the lab track
+
+- Date: 2026-11-22 · Status: accepted, scheduled as Lab 1 after D-024 lands
+- Decision: the UI may be rewritten in React and TypeScript. Vite builds a static bundle served by
+  the API process, with no frontend container. API types are generated from the OpenAPI schema and
+  the generated file is checked in CI. The vanilla UI ([D-003](#d-003--vanilla-js-ui-served-by-the-api))
+  stays until the rewrite reaches parity.
+- Consequence: UI rules 1 to 3 in [DESIGN.md](DESIGN.md#rules) apply from that sprint.
+
+## D-026 — Default tests stay offline and service-free
+
+- Date: 2026-11-22 · Status: accepted
+- Decision: `make test` needs no network, no Docker and no external service. Tests that need
+  PostgreSQL or an object store are opt-in (pytest marker, compose service) and never part of the
+  default gate or of CI's default job.
+- Consequence: a SQLite fallback is not accepted as a stand-in for PostgreSQL tests.
+
+## D-027 — Chapters table and stored durations
+
+- Date: 2026-11-24 · Status: accepted · Supersedes the "no chapter table" part of
+  [D-005](#d-005--derived-book-status-no-chapter-table) (derived book status stays)
+- Context: FR-08 needs durations, and chapter export (S4) needs per-chapter data. Chapters are
+  parsed on every use and never stored.
+- Decision: migration `002` adds table `chapters` (`book_id` cascade, `number`, `title` TEXT NOT
+  NULL DEFAULT '', `start_seconds` REAL NULL, `duration_seconds` REAL NULL; primary key
+  `book_id, number`) and column `books.duration_seconds` REAL NULL.
+  - Rows are written at upload, parsed with `include_code=False`. Books uploaded before S3 are
+    backfilled once from `source.md`; a book that already has rows is left unchanged.
+  - Start and duration stay NULL until a conversion completes. Backfill does not probe old audio.
+  - On completion the worker replaces all chapter rows of the book from its own chapter list
+    (the job's `include_code_blocks` applies) and sets `books.chapter_count` and
+    `books.duration_seconds`, in the same transaction as the `completed` transition. A
+    reconversion overwrites them.
+  - A failed or cancelled job writes nothing, so the previous audio keeps its previous durations.
+  - Chapter durations come from samples per chunk. The book duration comes from `probe_mp3`, so
+    the chapter sum can differ slightly (MP3 padding). Silence after a chunk belongs to the
+    chapter that precedes it.
+- Consequence: per-chapter audio (S4) can build on stored boundaries. Duplicate chapter titles
+  stay separate rows, keyed by `number`.
+
+## D-028 — Migration runner and completion details
+
+- Date: 2026-11-24 · Status: accepted · Refines [D-023](#d-023--versioned-sql-migrations) and
+  [D-027](#d-027--chapters-table-and-stored-durations)
+- Decision:
+  - One `BEGIN IMMEDIATE` covers all pending migrations; any failure rolls back all and leaves
+    `user_version` unchanged. Statements run one by one (`executescript` would COMMIT).
+  - One backup per run, taken under the lock, only if the database already has tables, named
+    `<db>.pre-v<final version>`. A v0.2.0 database gets `.pre-v2`.
+  - A database newer than the highest migration file raises `DB_TOO_NEW` (500).
+  - Chapter rows are written with the book at upload (`include_code=False`). Old books are
+    backfilled lazily on `GET /books/{id}` when they have no rows.
+  - `Store.complete_job` finishes a job, replaces chapter rows and sets `chapter_count` and
+    `duration_seconds` in one transaction; a cancelled job writes nothing.
+  - Router-level `responses` document one error shape; the default 422 schema is replaced.
+- Consequence: schema changes are new numbered files with tests. Chapter sum and probed MP3
+  length may differ slightly (padding).

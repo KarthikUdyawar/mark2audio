@@ -12,10 +12,11 @@ One file, `backend/app/static/index.html`: vanilla JS, no build step, served by 
 
 - **Upload**: drop zone (`#drop`) and file input (`.md`, `.markdown`). Messages in `#upmsg`.
 - **Library**: `#books` in a section labelled by its heading, one button per book, labelled
-  `Title (status)`.
+  `Title (status)`, or `Title (status, duration)` once a conversion has stored one.
 - **Detail** (`#detail`, hidden until a book is opened), one labelled subsection each:
   title (`Untitled book` if empty), chapter outline (`#chapters`, titles only,
-  `Untitled chapter` if empty), convert form in a `fieldset` (legend "Audio conversion
+  `Untitled chapter` if empty, `Title · duration` when timing is stored), convert form in a
+  `fieldset` (legend "Audio conversion
   settings"), conversion progress (`#jobmsg`, `#bar`), result (`#result`).
 
 ### Convert form
@@ -46,7 +47,7 @@ player, native `button`, `progress` and `audio` elements. Not audited.
 
 ### Gaps
 
-No settings page, duration display or chapter downloads. No TypeScript, no UI tests, script is
+No settings page or chapter downloads. No TypeScript, no UI tests, script is
 inline. Planned work: [ROADMAP.md](ROADMAP.md).
 
 ## Rules

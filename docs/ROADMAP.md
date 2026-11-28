@@ -30,7 +30,7 @@ download.
 ## Requirements status
 
 Baseline MVP requirements (full acceptance criteria: `git show cd46e5b:docs/PRD.md`). Status as
-of 2026-11-22. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
+of 2026-11-28. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 | ID    | Requirement                                                     | Pri | Status                                |
 | ----- | --------------------------------------------------------------- | --- | ------------------------------------- |
@@ -41,7 +41,7 @@ of 2026-11-22. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 | FR-05 | Local TTS, chunking, speed 0.8–1.2, progress                    | P0  | Built, verified with real model       |
 | FR-06 | FFmpeg MP3 at 128/192/256 kbps, title metadata, probe           | P0  | Built                                 |
 | FR-07 | Job lifecycle, monotonic progress, safe errors                  | P0  | Built                                 |
-| FR-08 | Library, detail, delete                                         | P0  | Partial: no duration shown            |
+| FR-08 | Library, detail, delete, durations                              | P0  | Built                                 |
 | FR-09 | Playback and download                                           | P0  | Built                                 |
 | FR-10 | Chapter MP3s and ZIP with manifest                              | P1  | Not built                             |
 | FR-11 | Cancellation                                                    | P1  | Built (API, worker, UI)               |
@@ -51,42 +51,74 @@ of 2026-11-22. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 One `feature/sN-<slug>` branch per sprint, one commit per task, release tagged `v0.N.0`.
 Per-sprint `PRD.md` and `TODO.md` live in `sprints/SN/`.
 
-| Sprint                  | Theme                                            | Release  | Status |
-| ----------------------- | ------------------------------------------------ | -------- | ------ |
-| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile  | `v0.0.0` | Done   |
-| [S1](sprints/S1/PRD.md) | Verify the baseline: real model, Docker, offline | `v0.1.0` | Done   |
-| [S2](sprints/S2/PRD.md) | Ops hardening: worker health check, API errors   | `v0.2.0` | Done   |
+| Sprint                  | Theme                                                              | Release  | Status  |
+| ----------------------- | ------------------------------------------------------------------ | -------- | ------- |
+| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile                    | `v0.0.0` | Done    |
+| [S1](sprints/S1/PRD.md) | Verify the baseline: real model, Docker, offline                   | `v0.1.0` | Done    |
+| [S2](sprints/S2/PRD.md) | Ops hardening: worker health check, API errors                     | `v0.2.0` | Done    |
+| [S3](sprints/S3/PRD.md) | Data foundation: migrations, chapters, durations, typed responses  | `v0.3.0` | Done    |
+| S4                      | Chapter export: chapter MP3s and ZIP with manifest                 | `v0.4.0` | Planned |
+| S5                      | Robustness and recovery: bad input, FFmpeg failure, crash, headers | `v0.5.0` | Planned |
+| S6                      | Content quality: headings, alt text, normalization, pronunciation  | `v0.6.0` | Planned |
+| S7                      | Library lifecycle: retention, cleanup, usage, retry, history       | `v0.7.0` | Planned |
+| S8                      | Voices and models: hidden voices, model v1.1, voice preview        | `v0.8.0` | Planned |
+
+## Planned scope
+
+One theme per sprint, at most 12 tasks. Scope is fixed only when the sprint PRD exists.
+
+- **S3**: versioned SQL migrations ([D-023](DECISION.md)), `chapters` table and stored durations,
+  Pydantic response models ([D-024](DECISION.md)), duration in the UI (FR-08).
+- **S4**: chapter MP3s and ZIP with manifest (FR-10), chapter navigation data.
+- **S5**: malformed and huge Markdown, FFmpeg failure, kill during encode, orphan cleanup, Host
+  header check, CSP, upload and path review, no remote resources, no source text in logs,
+  troubleshooting guide, trace the `phonemizer words count mismatch` warnings, `HEAD` on
+  `/books/{id}/audio` returns 404 (GET-only route falls through to the static mount).
+- **S6**: configurable heading level, image alt text, text normalization (numbers, dates, URLs,
+  symbols), pronunciation dictionary, pause after headings.
+- **S7**: retention and cleanup (technical rule: file and path safety, item 10), storage usage,
+  retry as new job, history, queue position, settings page, SQLite backup procedure (WAL is not
+  one file).
+- **S8**: the 26 hidden non-English voices (verify espeak codes), model release `model-files-v1.1`
+  ([D-017](DECISION.md)), voice preview (needs a worker job type: API rule 9), other engines
+  behind `TtsEngine`.
+
+## Lab track (optional)
+
+SQLite, local disk and the vanilla UI stay the defaults ([D-022](DECISION.md)). The lab adds
+production-style infrastructure for learning, each as its own sprint, decision and compose
+profile. The default install and the offline worker proof stay unchanged. One lab sprint at a time,
+so a failure has one cause.
+
+```mermaid
+flowchart LR
+    S3["S3 · typed API"] --> S4["S4 · chapter export"]
+    S4 --> S5["S5 · robustness"]
+    S5 --> S6["S6 · content quality"]
+    S6 --> S7["S7 · lifecycle"]
+    S7 --> S8["S8 · voices"]
+    S3 -. typed API ready .-> L1["Lab 1 · React/TS UI"]
+    L1 --> L2["Lab 2 · PostgreSQL profile"]
+    L2 --> L3["Lab 3 · Garage profile"]
+```
+
+- **Lab 1**: React/TypeScript ([D-025](DECISION.md)), Vite build served by the API, types
+  generated from OpenAPI.
+- **Lab 2**: optional PostgreSQL profile. Needs a repository boundary with two real
+  implementations, opt-in tests ([D-026](DECISION.md)), and a SQLite-to-Postgres copy tool.
+- **Lab 3**: optional Garage profile. The worker keeps local scratch files and uploads the final
+  artifact; the database and the object store cannot share a transaction, so it needs an upload
+  state and a reconciliation task.
 
 ## Unscheduled candidates
 
-Input for S3 planning, in rough priority order. S1 verified the baseline (real model, Docker,
-offline), covered `app/main.py` and the worker, and pinned Actions by SHA.
-S2 added the worker health check and fixed the API failure paths found in review.
+Not assigned to a sprint or the lab.
 
-### **Hardening**
-
-- Review upload, path traversal and deletion safety; verify no remote Markdown resources are
-  fetched; verify logs contain no source text.
-- Malformed Markdown, very long documents, FFmpeg failure, restart during conversion.
-- Troubleshooting guide and known limitations.
-- Trace the `phonemizer words count mismatch` warnings in the worker log.
-- Evaluate model release `model-files-v1.1` (different `kokoro-v1.0.onnx`, untested, see D-017).
-- Enable the 26 hidden non-English voices after verifying their espeak language codes.
-
-### **P1**
-
-- Chapter MP3 export and ZIP with manifest (FR-10).
-- Settings page, duration display, storage usage, cleanup and retention (technical rule: file
-  and path safety, item 10).
-- Conversion history, retry as new job.
+- Metadata editor, optional cover art.
+- Resume from the last successful chunk.
+- Upload several files or a ZIP as one book.
 - More verified languages and voice packs.
-
-### **P2**
-
-- Pronunciation dictionary, metadata editor, chapter navigation, optional cover art.
-- Resume from last successful chunk.
-- Other local TTS engines behind the same interface.
-- React/TypeScript UI (needs a decision, see [DECISION.md](DECISION.md)).
+- Extract the inline UI script into its own file.
 
 ## Risks
 

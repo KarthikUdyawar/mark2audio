@@ -1,4 +1,5 @@
 import errno
+import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -183,3 +184,44 @@ def test_main_writes_heartbeat_when_ready_and_idle(
     with pytest.raises(_StopLoopError):
         worker.main()
     assert settings.heartbeat_path.is_file()
+
+
+def _stored_book_duration(settings: Settings, book_id: str) -> float | None:
+    db = sqlite3.connect(settings.db_path)
+    try:
+        return db.execute(  # type: ignore[no-any-return]
+            "SELECT duration_seconds FROM books WHERE id=?", (book_id,)
+        ).fetchone()[0]
+    finally:
+        db.close()
+
+
+def test_completion_stores_chapter_timing_with_duplicate_titles(
+    settings: Settings, store: Store, engine: FakeTts
+) -> None:
+    text = "# Same\nFirst chapter text here.\n\n# Same\nSecond chapter text here.\n"
+    book_id = add_book(settings, store, text)
+    store.create_job(book_id, PARAMS)
+    run_pending(store, engine, settings)
+    rows = store.get_chapters(book_id)
+    assert [(r.number, r.title) for r in rows] == [(1, "Same"), (2, "Same")]
+    first, second = rows
+    assert first.start_seconds == 0.0
+    assert first.duration_seconds is not None and first.duration_seconds > 0
+    assert second.start_seconds == pytest.approx(first.duration_seconds)
+    assert second.duration_seconds is not None and second.duration_seconds > 0
+    assert store.get_book(book_id).chapter_count == 2
+    book_seconds = _stored_book_duration(settings, book_id)
+    assert book_seconds is not None
+    # Chapter sum and probed MP3 length differ only by encoder padding.
+    assert book_seconds == pytest.approx(first.duration_seconds + second.duration_seconds, abs=0.5)
+
+
+def test_cancelled_job_leaves_previous_timing_untouched(settings: Settings, store: Store) -> None:
+    book_id = add_book(settings, store)
+    store.backfill_chapters(book_id, ["Old"])
+    job = store.create_job(book_id, PARAMS)
+    run_pending(store, CancelTts(store, job.id), settings)
+    assert store.get_job(job.id).status == "cancelled"
+    assert [(r.title, r.duration_seconds) for r in store.get_chapters(book_id)] == [("Old", None)]
+    assert _stored_book_duration(settings, book_id) is None
