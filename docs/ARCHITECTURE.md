@@ -25,8 +25,11 @@ All under `backend/app/`.
 | `api.py`            | `create_app(settings, engine)`: router, error handlers, static UI      |
 | `config.py`         | `Settings` frozen dataclass, `Settings.from_env()`                     |
 | `errors.py`         | `AppError(code, message, status)`                                      |
+| `migrate.py`        | `migrate(db_path, folder)`: versioned SQL migrations (D-023, D-028)    |
+| `migrations/`       | `NNN_name.sql`, applied in order: `001_baseline`, `002_chapters`       |
 | `parser.py`         | `parse_markdown(text, include_code)` → `Chapter` list (markdown-it-py) |
 | `chunker.py`        | `chunk_chapters(chapters, max_chars)` → `Chunk` list                   |
+| `schemas.py`        | Pydantic response models, the public API contract (D-024)              |
 | `tts.py`            | `TtsEngine` protocol, `FakeTts`, `load_engine`, `SPEED_RANGE`          |
 | `tts_kokoro.py`     | `KokoroTts` adapter, verified with the real model (D-017)              |
 | `encoder.py`        | `WavSink`, `ffmpeg_args`, `encode_mp3`, `probe_mp3`                    |
@@ -53,16 +56,30 @@ Template: `.env.example`.
 
 ## Data model
 
-`store.py` creates tables on start (`CREATE TABLE IF NOT EXISTS`, no migrations). Foreign keys ON.
+`Store` runs the migrations on start (see [Migrations](#migrations)). Foreign keys ON.
 
-- `books`: `id`, `title`, `original_filename`, `chapter_count`, `created_at`.
+- `books`: `id`, `title`, `original_filename`, `chapter_count`, `created_at`, `duration_seconds`
+  (NULL until a conversion completes).
 - `jobs`: `id`, `book_id` (cascade delete), `status`, `voice_id`, `language`, `speed`,
   `bitrate_kbps`, `include_code_blocks`, `total_chunks`, `completed_chunks`, `progress_percent`,
   `current_chapter`, `error_code`, `error_message`, `created_at`, `started_at`, `completed_at`.
-- No chapter table. Book status is derived from the latest job (`queued`, `processing`,
-  `completed`, `failed`), else `uploaded`.
+- `chapters`: `book_id` (cascade delete), `number`, `title`, `start_seconds`, `duration_seconds`;
+  primary key `book_id, number`. Rows are written with the book at upload
+  (`include_code=False`); books uploaded before v0.3.0 are backfilled on the first
+  `GET /books/{id}`. Timing stays NULL until a conversion completes.
+- Book status is derived from the latest job (`queued`, `processing`, `completed`, `failed`),
+  else `uploaded`.
 - Every operation opens a fresh connection with a short `BEGIN IMMEDIATE` transaction (api and worker
   are separate processes). No transaction is held during TTS.
+
+### Migrations
+
+- Ordered files in `backend/app/migrations/`, version in `PRAGMA user_version`.
+- All pending files run in one `BEGIN IMMEDIATE` transaction, statement by statement; the version
+  is re-read under the lock, so api and worker can start together. Any failure rolls back all.
+- Before migrating a database that has tables, it is copied to `mark2audio.db.pre-v<N>` (`N` =
+  target version).
+- A database newer than the highest file raises `DB_TOO_NEW` (500) and the process does not start.
 
 ## Job lifecycle
 
@@ -99,7 +116,12 @@ stateDiagram-v2
 4. Per chunk, in order: cancel check → `engine.synthesize(text, voice, speed, language)` →
    `WavSink.write` → `WavSink.silence(silence_ms)` → `set_progress` → `beat`.
 5. `beat`, then `encode_mp3` (FFmpeg, argument list, timeout) to `audiobook.mp3.part`; `probe_mp3` validates.
-6. Cancel check; `os.replace` to `audiobook.mp3` (atomic); transition to `completed`.
+6. Cancel check; `os.replace` to `audiobook.mp3` (atomic); `Store.complete_job` sets
+   `completed`, replaces the book's chapter rows with start and duration, and sets
+   `chapter_count` and `duration_seconds`, in one transaction. A cancelled job writes nothing.
+
+Chapter timing comes from samples per chunk; silence after a chunk belongs to the chapter before
+it. Book duration comes from `probe_mp3`, so the chapter sum can differ slightly (MP3 padding).
 
 The model is loaded once per worker process (`load_engine` in `main`).
 
@@ -120,7 +142,10 @@ Python process (not Docker), 2026-11-21:
 
 ## API
 
-Router prefix `/api/v1`. Errors: `{"error": {"code", "message"}}` via handlers for `AppError` and
+Router prefix `/api/v1`. Every endpoint declares a `response_model` from `schemas.py`; books
+carry `duration_seconds`, book detail adds `chapters` (`number`, `title`, `start_seconds`,
+`duration_seconds`) and `latest_job`. Errors: `{"error": {"code", "message"}}`, documented in
+OpenAPI as `ErrorResponse` (422 included), via handlers for `AppError` and
 request-validation errors, and a catch-all that returns `INTERNAL` (500) with the trace in the
 server log only. `DISK_FULL` is 507, `SOURCE_MISSING` (book file gone) is 500. A failed upload
 removes its folder. Book and job ids are UUIDs.
@@ -145,6 +170,7 @@ data/uploads/{book_id}/source.md
 data/audio/{book_id}/audiobook.mp3        (+ audiobook.mp3.part while publishing)
 data/temp/{job_id}/book.wav               (removed after each job)
 data/mark2audio.db
+data/mark2audio.db.pre-v<N>                (copy taken before a migration)
 models/kokoro/{kokoro-v1.0.onnx, voices-v1.0.bin}   (mounted, outside the image)
 ```
 
@@ -168,6 +194,11 @@ the root (blocks traversal and symlink escape).
   compose does not restart on it.
 - Image built and run with Compose on 2026-11-21: a real-model conversion completes and the
   container writes `data/` through the bind mount (host and container uid are both 1000).
+- Upgrade from v0.2.0 verified 2026-11-28 with Compose on a real `data/` (copy kept outside the
+  repository; 7 books, 8 completed and 1 cancelled job, `user_version` 0): migrations `001` and
+  `002` applied, `mark2audio.db.pre-v2` written, old books kept status and audio, chapter rows
+  backfilled on first detail read with null timing, a new upload converted with book and
+  chapter durations shown in the UI.
 - Offline proof: `docker-compose.offline.yml` gives the worker `network_mode: none`. Run
   `docker compose -f docker-compose.yml -f docker-compose.offline.yml up -d --force-recreate worker`.
   On 2026-11-21 a worker with only a loopback interface, failing outbound connects and failing DNS
@@ -176,8 +207,9 @@ the root (blocks traversal and symlink escape).
 
 ## Tests
 
-`backend/tests/`: `test_api`, `test_audio`, `test_chunker`, `test_parser`, `test_store`,
-`test_worker`, `test_main`, `test_tts`, `test_kokoro_adapter` (stub model), `test_smoke_kokoro` (real model and
+`backend/tests/`: `test_api`, `test_audio`, `test_chunker`, `test_migrate`, `test_openapi`,
+`test_parser`, `test_store`, `test_worker`, `test_main`, `test_tts`, `test_kokoro_adapter`
+(stub model), `test_smoke_kokoro` (real model and
 FFmpeg, runs only when both exist; `make smoke`). `conftest.py` fixtures:
 `settings` (tmp dirs, `chunk_max_chars=40`, `silence_ms=50`), `store`, `engine` (`FakeTts`).
 Coverage gate 80% (`pyproject.toml`), `tts_kokoro.py` omitted.

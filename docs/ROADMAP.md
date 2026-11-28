@@ -30,7 +30,7 @@ download.
 ## Requirements status
 
 Baseline MVP requirements (full acceptance criteria: `git show cd46e5b:docs/PRD.md`). Status as
-of 2026-11-22. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
+of 2026-11-28. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 | ID    | Requirement                                                     | Pri | Status                                |
 | ----- | --------------------------------------------------------------- | --- | ------------------------------------- |
@@ -41,7 +41,7 @@ of 2026-11-22. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 | FR-05 | Local TTS, chunking, speed 0.8–1.2, progress                    | P0  | Built, verified with real model       |
 | FR-06 | FFmpeg MP3 at 128/192/256 kbps, title metadata, probe           | P0  | Built                                 |
 | FR-07 | Job lifecycle, monotonic progress, safe errors                  | P0  | Built                                 |
-| FR-08 | Library, detail, delete                                         | P0  | Partial: no duration shown            |
+| FR-08 | Library, detail, delete, durations                              | P0  | Built                                 |
 | FR-09 | Playback and download                                           | P0  | Built                                 |
 | FR-10 | Chapter MP3s and ZIP with manifest                              | P1  | Not built                             |
 | FR-11 | Cancellation                                                    | P1  | Built (API, worker, UI)               |
@@ -51,17 +51,17 @@ of 2026-11-22. How each is built: [ARCHITECTURE.md](ARCHITECTURE.md).
 One `feature/sN-<slug>` branch per sprint, one commit per task, release tagged `v0.N.0`.
 Per-sprint `PRD.md` and `TODO.md` live in `sprints/SN/`.
 
-| Sprint                  | Theme                                                              | Release  | Status      |
-| ----------------------- | ------------------------------------------------------------------ | -------- | ----------- |
-| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile                    | `v0.0.0` | Done        |
-| [S1](sprints/S1/PRD.md) | Verify the baseline: real model, Docker, offline                   | `v0.1.0` | Done        |
-| [S2](sprints/S2/PRD.md) | Ops hardening: worker health check, API errors                     | `v0.2.0` | Done        |
-| [S3](sprints/S3/PRD.md) | Data foundation: migrations, chapters, durations, typed responses  | `v0.3.0` | In progress |
-| S4                      | Chapter export: chapter MP3s and ZIP with manifest                 | `v0.4.0` | Planned     |
-| S5                      | Robustness and recovery: bad input, FFmpeg failure, crash, headers | `v0.5.0` | Planned     |
-| S6                      | Content quality: headings, alt text, normalization, pronunciation  | `v0.6.0` | Planned     |
-| S7                      | Library lifecycle: retention, cleanup, usage, retry, history       | `v0.7.0` | Planned     |
-| S8                      | Voices and models: hidden voices, model v1.1, voice preview        | `v0.8.0` | Planned     |
+| Sprint                  | Theme                                                              | Release  | Status  |
+| ----------------------- | ------------------------------------------------------------------ | -------- | ------- |
+| [S0](sprints/S0/PRD.md) | Setup: docs, workflow, CI, pre-commit, lockfile                    | `v0.0.0` | Done    |
+| [S1](sprints/S1/PRD.md) | Verify the baseline: real model, Docker, offline                   | `v0.1.0` | Done    |
+| [S2](sprints/S2/PRD.md) | Ops hardening: worker health check, API errors                     | `v0.2.0` | Done    |
+| [S3](sprints/S3/PRD.md) | Data foundation: migrations, chapters, durations, typed responses  | `v0.3.0` | Done    |
+| S4                      | Chapter export: chapter MP3s and ZIP with manifest                 | `v0.4.0` | Planned |
+| S5                      | Robustness and recovery: bad input, FFmpeg failure, crash, headers | `v0.5.0` | Planned |
+| S6                      | Content quality: headings, alt text, normalization, pronunciation  | `v0.6.0` | Planned |
+| S7                      | Library lifecycle: retention, cleanup, usage, retry, history       | `v0.7.0` | Planned |
+| S8                      | Voices and models: hidden voices, model v1.1, voice preview        | `v0.8.0` | Planned |
 
 ## Planned scope
 
@@ -72,7 +72,8 @@ One theme per sprint, at most 12 tasks. Scope is fixed only when the sprint PRD 
 - **S4**: chapter MP3s and ZIP with manifest (FR-10), chapter navigation data.
 - **S5**: malformed and huge Markdown, FFmpeg failure, kill during encode, orphan cleanup, Host
   header check, CSP, upload and path review, no remote resources, no source text in logs,
-  troubleshooting guide, trace the `phonemizer words count mismatch` warnings.
+  troubleshooting guide, trace the `phonemizer words count mismatch` warnings, `HEAD` on
+  `/books/{id}/audio` returns 404 (GET-only route falls through to the static mount).
 - **S6**: configurable heading level, image alt text, text normalization (numbers, dates, URLs,
   symbols), pronunciation dictionary, pause after headings.
 - **S7**: retention and cleanup (technical rule: file and path safety, item 10), storage usage,
