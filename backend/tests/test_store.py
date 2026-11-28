@@ -6,7 +6,7 @@ import pytest
 
 from app.errors import AppError
 from app.storage import book_dir
-from app.store import JobParams, Store
+from app.store import ChapterRow, JobParams, Store
 
 PARAMS = JobParams(
     voice_id="v", language="en-us", speed=1.0, bitrate_kbps=192, include_code_blocks=False
@@ -111,3 +111,80 @@ def test_create_job_for_unknown_book_is_not_found(store: Store) -> None:
     with pytest.raises(AppError) as err:
         store.create_job(str(uuid.uuid4()), params)
     assert err.value.code == "BOOK_NOT_FOUND" and err.value.status == 404
+
+
+def test_create_book_with_chapters_writes_rows(store: Store) -> None:
+    store.create_book("b2", "T", "t.md", 2, ["Same", "Same"])
+    rows = store.get_chapters("b2")
+    assert [(r.number, r.title) for r in rows] == [(1, "Same"), (2, "Same")]
+    assert all(r.start_seconds is None and r.duration_seconds is None for r in rows)
+
+
+def test_backfill_writes_rows_and_count(store: Store) -> None:
+    store.backfill_chapters("b1", ["X", "Y", "Z"])
+    rows = store.get_chapters("b1")
+    assert [(r.number, r.title) for r in rows] == [(1, "X"), (2, "Y"), (3, "Z")]
+    assert store.get_book("b1").chapter_count == 3
+
+
+def test_backfill_unknown_book_is_not_found(store: Store) -> None:
+    with pytest.raises(AppError) as err:
+        store.backfill_chapters("nope", ["A"])
+    assert err.value.code == "BOOK_NOT_FOUND"
+
+
+def test_backfill_keeps_existing_timed_rows(store: Store) -> None:
+    job = store.create_job("b1", PARAMS)
+    store.transition(job.id, "processing")
+    rows = [ChapterRow(1, "A", 0.0, 1.5)]
+    store.complete_job(job.id, rows, 1.5)
+    store.backfill_chapters("b1", ["Q", "R"])  # a stale backfill racing completion
+    assert store.get_chapters("b1") == rows
+    assert store.get_book("b1").chapter_count == 1
+
+
+def test_get_chapters_without_rows_is_empty(store: Store) -> None:
+    assert store.get_chapters("b1") == []
+
+
+def _book_duration(store: Store, book_id: str) -> float | None:
+    db = store._connect()
+    try:
+        return db.execute(  # type: ignore[no-any-return]
+            "SELECT duration_seconds FROM books WHERE id=?", (book_id,)
+        ).fetchone()[0]
+    finally:
+        db.close()
+
+
+def test_complete_job_writes_timing_and_completes_atomically(store: Store) -> None:
+    job = store.create_job("b1", PARAMS)
+    store.transition(job.id, "processing")
+    rows = [ChapterRow(1, "A", 0.0, 1.5), ChapterRow(2, "A", 1.5, 2.0)]
+    store.complete_job(job.id, rows, 3.6)
+    done = store.get_job(job.id)
+    assert (done.status, done.progress_percent) == ("completed", 100)
+    assert store.get_chapters("b1") == rows
+    assert store.get_book("b1").chapter_count == 2
+    assert _book_duration(store, "b1") == 3.6
+
+
+def test_complete_job_on_cancelled_job_writes_nothing(store: Store) -> None:
+    store.backfill_chapters("b1", ["Old"])
+    job = store.create_job("b1", PARAMS)
+    store.transition(job.id, "processing")
+    store.transition(job.id, "cancelled")
+    with pytest.raises(AppError) as err:
+        store.complete_job(job.id, [ChapterRow(1, "New", 0.0, 1.0)], 1.0)
+    assert err.value.code == "INVALID_TRANSITION"
+    assert [(r.title, r.duration_seconds) for r in store.get_chapters("b1")] == [("Old", None)]
+    assert _book_duration(store, "b1") is None
+
+
+def test_book_exposes_stored_duration(store: Store) -> None:
+    assert store.get_book("b1").duration_seconds is None
+    job = store.create_job("b1", PARAMS)
+    store.transition(job.id, "processing")
+    store.complete_job(job.id, [ChapterRow(1, "A", 0.0, 1.0)], 3.6)
+    assert store.get_book("b1").duration_seconds == 3.6
+    assert [b.duration_seconds for b in store.list_books()] == [3.6]

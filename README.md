@@ -20,6 +20,10 @@ No model yet? `M2A_FAKE_TTS=1` makes sine-tone audio to try the pipeline.
 
 Layout: [ARCHITECTURE.md](docs/ARCHITECTURE.md#storage). Back up by copying `data/`. Models stay in `models/kokoro/` (mounted, not in the image).
 
+Upgrades migrate the database on start and first copy it to `data/mark2audio.db.pre-v<N>`. To roll
+back: `make down`, restore that file as `data/mark2audio.db`, run the previous release (a newer
+database stops an older app with `DB_TOO_NEW`).
+
 ## Checks
 
 `make test lint typecheck` (pytest with 80% coverage gate, ruff with security rules, strict mypy).

@@ -1,7 +1,7 @@
 """SQLite persistence: books, conversion jobs, validated state machine, atomic claiming."""
 
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -9,21 +9,9 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.errors import AppError
+from app.migrate import migrate
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS books (
-  id TEXT PRIMARY KEY, title TEXT NOT NULL, original_filename TEXT NOT NULL,
-  chapter_count INTEGER NOT NULL, created_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS jobs (
-  id TEXT PRIMARY KEY,
-  book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-  status TEXT NOT NULL, voice_id TEXT NOT NULL, language TEXT NOT NULL, speed REAL NOT NULL,
-  bitrate_kbps INTEGER NOT NULL, include_code_blocks INTEGER NOT NULL,
-  total_chunks INTEGER NOT NULL DEFAULT 0, completed_chunks INTEGER NOT NULL DEFAULT 0,
-  progress_percent INTEGER NOT NULL DEFAULT 0, current_chapter TEXT,
-  error_code TEXT, error_message TEXT,
-  created_at TEXT NOT NULL, started_at TEXT, completed_at TEXT);
-"""
+MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 ALLOWED = {
     "queued": {"processing", "cancelled"},
     "processing": {"completed", "failed", "cancelled"},
@@ -70,6 +58,15 @@ class Book:
     chapter_count: int
     created_at: str
     status: str
+    duration_seconds: float | None = None
+
+
+@dataclass(frozen=True)
+class ChapterRow:
+    number: int
+    title: str
+    start_seconds: float | None
+    duration_seconds: float | None
 
 
 def _now() -> str:
@@ -83,9 +80,7 @@ def _job(row: sqlite3.Row) -> Job:
 class Store:
     def __init__(self, path: Path) -> None:
         self._path = path
-        db = self._connect()
-        db.executescript(SCHEMA)
-        db.close()
+        migrate(path, MIGRATIONS_DIR)
 
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self._path, timeout=30, isolation_level=None)
@@ -108,12 +103,47 @@ class Store:
             db.close()
 
     # --- books ---
-    def create_book(self, book_id: str, title: str, filename: str, chapter_count: int) -> None:
+    def create_book(
+        self,
+        book_id: str,
+        title: str,
+        filename: str,
+        chapter_count: int,
+        chapters: Sequence[str] = (),
+    ) -> None:
         with self._tx() as db:
             db.execute(
-                "INSERT INTO books VALUES (?,?,?,?,?)",
+                "INSERT INTO books (id, title, original_filename, chapter_count, created_at) "
+                "VALUES (?,?,?,?,?)",
                 (book_id, title, filename, chapter_count, _now()),
             )
+            self._insert_chapters(db, book_id, chapters)
+
+    @staticmethod
+    def _insert_chapters(db: sqlite3.Connection, book_id: str, titles: Sequence[str]) -> None:
+        db.executemany(
+            "INSERT INTO chapters (book_id, number, title) VALUES (?,?,?)",
+            [(book_id, number, title) for number, title in enumerate(titles, start=1)],
+        )
+
+    def backfill_chapters(self, book_id: str, titles: Sequence[str]) -> None:
+        """Write chapter rows for a book that has none; existing rows are never replaced."""
+        with self._tx() as db:
+            if db.execute("SELECT 1 FROM books WHERE id=?", (book_id,)).fetchone() is None:
+                raise AppError("BOOK_NOT_FOUND", "Book not found.", 404)
+            if db.execute("SELECT 1 FROM chapters WHERE book_id=?", (book_id,)).fetchone():
+                return  # rows exist: written at upload or by a completed job
+            self._insert_chapters(db, book_id, titles)
+            db.execute("UPDATE books SET chapter_count=? WHERE id=?", (len(titles), book_id))
+
+    def get_chapters(self, book_id: str) -> list[ChapterRow]:
+        with self._tx() as db:
+            rows = db.execute(
+                "SELECT number, title, start_seconds, duration_seconds FROM chapters "
+                "WHERE book_id=? ORDER BY number",
+                (book_id,),
+            ).fetchall()
+        return [ChapterRow(**dict(r)) for r in rows]
 
     _BOOK_SQL = """SELECT b.*, (SELECT status FROM jobs j WHERE j.book_id=b.id
                    ORDER BY j.created_at DESC, j.rowid DESC LIMIT 1) AS job_status FROM books b"""
@@ -136,7 +166,7 @@ class Store:
             status = "uploaded"
         return Book(
             row["id"], row["title"], row["original_filename"], row["chapter_count"],
-            row["created_at"], status,
+            row["created_at"], status, row["duration_seconds"],
         )  # fmt: skip
 
     def delete_book(self, book_id: str) -> None:
@@ -206,6 +236,33 @@ class Store:
                 "progress_percent=CASE WHEN ?='completed' THEN 100 ELSE progress_percent END "
                 "WHERE id=?",
                 (to, error_code, error_message, done, to, job_id),
+            )
+
+    def complete_job(
+        self, job_id: str, rows: Sequence[ChapterRow], duration_seconds: float
+    ) -> None:
+        """Finish a job and store chapter timing and book duration in one transaction."""
+        with self._tx() as db:
+            row = db.execute("SELECT status, book_id FROM jobs WHERE id=?", (job_id,)).fetchone()
+            if row is None:
+                raise AppError("JOB_NOT_FOUND", "Job not found.", 404)
+            if "completed" not in ALLOWED.get(row["status"], set()):
+                raise AppError("INVALID_TRANSITION", f"Cannot go {row['status']} → completed.", 409)
+            book_id = row["book_id"]
+            db.execute(
+                "UPDATE jobs SET status='completed', progress_percent=100, completed_at=? "
+                "WHERE id=?",
+                (_now(), job_id),
+            )
+            db.execute("DELETE FROM chapters WHERE book_id=?", (book_id,))
+            db.executemany(
+                "INSERT INTO chapters (book_id, number, title, start_seconds, duration_seconds) "
+                "VALUES (?,?,?,?,?)",
+                [(book_id, r.number, r.title, r.start_seconds, r.duration_seconds) for r in rows],
+            )
+            db.execute(
+                "UPDATE books SET chapter_count=?, duration_seconds=? WHERE id=?",
+                (len(rows), duration_seconds, book_id),
             )
 
     def set_progress(self, job_id: str, completed: int, total: int, chapter: str) -> None:
