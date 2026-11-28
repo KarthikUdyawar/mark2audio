@@ -126,12 +126,13 @@ class Store:
             [(book_id, number, title) for number, title in enumerate(titles, start=1)],
         )
 
-    def set_chapters(self, book_id: str, titles: Sequence[str]) -> None:
-        """Replace all chapter rows of a book and keep books.chapter_count in step."""
+    def backfill_chapters(self, book_id: str, titles: Sequence[str]) -> None:
+        """Write chapter rows for a book that has none; existing rows are never replaced."""
         with self._tx() as db:
             if db.execute("SELECT 1 FROM books WHERE id=?", (book_id,)).fetchone() is None:
                 raise AppError("BOOK_NOT_FOUND", "Book not found.", 404)
-            db.execute("DELETE FROM chapters WHERE book_id=?", (book_id,))
+            if db.execute("SELECT 1 FROM chapters WHERE book_id=?", (book_id,)).fetchone():
+                return  # rows exist: written at upload or by a completed job
             self._insert_chapters(db, book_id, titles)
             db.execute("UPDATE books SET chapter_count=? WHERE id=?", (len(titles), book_id))
 

@@ -14,11 +14,11 @@ One commit per task. Goal and acceptance: [PRD.md](PRD.md).
 - [x] T9 UI: durations in library and outline
 - [x] T10 Upgrade a copy of a real v0.2.0 `data/` through Compose; record in ARCHITECTURE
 - [x] T11 ARCHITECTURE, DESIGN, README, ROADMAP (FR-08 Built, S3 Done), `make tree`
-- [ ] T12 Review sprint diff (CLAUDE.md section 18), fix findings
+- [x] T12 Review sprint diff (CLAUDE.md section 18), fix findings
 - [ ] T13 PR to `develop`, `release/v0.3.0` PR to `main`, tag `v0.3.0`, handoff
 
 Cut line if the sprint runs long: T9 first, then the backfill part of T5.
 
 ## Next actions
 
-- [ ] T12 Sprint diff review. T13 PR, release, tag `v0.3.0`.
+- [ ] T13 PR, release, tag `v0.3.0`.

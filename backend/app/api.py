@@ -141,7 +141,9 @@ def create_app(settings: Settings, engine: TtsEngine) -> FastAPI:
         book = store.get_book(book_id)
         rows = store.get_chapters(book_id)
         if not rows:  # book uploaded before S3: backfill once from the source
-            store.set_chapters(book_id, [c.title for c in parse_markdown(read_source(book_id))])
+            store.backfill_chapters(
+                book_id, [c.title for c in parse_markdown(read_source(book_id))]
+            )
             rows = store.get_chapters(book_id)
             book = store.get_book(book_id)
         latest = store.latest_job(book_id)

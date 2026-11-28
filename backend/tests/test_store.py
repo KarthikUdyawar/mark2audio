@@ -120,17 +120,27 @@ def test_create_book_with_chapters_writes_rows(store: Store) -> None:
     assert all(r.start_seconds is None and r.duration_seconds is None for r in rows)
 
 
-def test_set_chapters_replaces_rows_and_count(store: Store) -> None:
-    store.set_chapters("b1", ["X", "Y", "Z"])
-    store.set_chapters("b1", ["Q"])
-    assert [(r.number, r.title) for r in store.get_chapters("b1")] == [(1, "Q")]
-    assert store.get_book("b1").chapter_count == 1
+def test_backfill_writes_rows_and_count(store: Store) -> None:
+    store.backfill_chapters("b1", ["X", "Y", "Z"])
+    rows = store.get_chapters("b1")
+    assert [(r.number, r.title) for r in rows] == [(1, "X"), (2, "Y"), (3, "Z")]
+    assert store.get_book("b1").chapter_count == 3
 
 
-def test_set_chapters_unknown_book_is_not_found(store: Store) -> None:
+def test_backfill_unknown_book_is_not_found(store: Store) -> None:
     with pytest.raises(AppError) as err:
-        store.set_chapters("nope", ["A"])
+        store.backfill_chapters("nope", ["A"])
     assert err.value.code == "BOOK_NOT_FOUND"
+
+
+def test_backfill_keeps_existing_timed_rows(store: Store) -> None:
+    job = store.create_job("b1", PARAMS)
+    store.transition(job.id, "processing")
+    rows = [ChapterRow(1, "A", 0.0, 1.5)]
+    store.complete_job(job.id, rows, 1.5)
+    store.backfill_chapters("b1", ["Q", "R"])  # a stale backfill racing completion
+    assert store.get_chapters("b1") == rows
+    assert store.get_book("b1").chapter_count == 1
 
 
 def test_get_chapters_without_rows_is_empty(store: Store) -> None:
@@ -160,7 +170,7 @@ def test_complete_job_writes_timing_and_completes_atomically(store: Store) -> No
 
 
 def test_complete_job_on_cancelled_job_writes_nothing(store: Store) -> None:
-    store.set_chapters("b1", ["Old"])
+    store.backfill_chapters("b1", ["Old"])
     job = store.create_job("b1", PARAMS)
     store.transition(job.id, "processing")
     store.transition(job.id, "cancelled")

@@ -219,7 +219,7 @@ def test_completion_stores_chapter_timing_with_duplicate_titles(
 
 def test_cancelled_job_leaves_previous_timing_untouched(settings: Settings, store: Store) -> None:
     book_id = add_book(settings, store)
-    store.set_chapters(book_id, ["Old"])
+    store.backfill_chapters(book_id, ["Old"])
     job = store.create_job(book_id, PARAMS)
     run_pending(store, CancelTts(store, job.id), settings)
     assert store.get_job(job.id).status == "cancelled"

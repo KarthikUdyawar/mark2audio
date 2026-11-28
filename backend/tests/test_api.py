@@ -122,11 +122,20 @@ def test_bad_ids_are_404_never_500(client: TestClient) -> None:
         assert client.get("/api/v1" + path).status_code == 404
 
 
+def _drop_chapters(store: Store, book_id: str) -> None:
+    """Give a book the shape of one uploaded before S3: no chapter rows."""
+    db = store._connect()
+    try:
+        db.execute("DELETE FROM chapters WHERE book_id=?", (book_id,))
+    finally:
+        db.close()
+
+
 def test_detail_with_missing_source_is_stable_error(
     client: TestClient, settings: Settings, store: Store
 ) -> None:
     bid = str(upload(client)["id"])
-    store.set_chapters(bid, [])  # old book: no chapter rows, so detail must read the source
+    _drop_chapters(store, bid)  # old book: no chapter rows, so detail must read the source
     (settings.uploads_dir / bid / "source.md").unlink()
     res = client.get(f"/api/v1/books/{bid}")
     assert res.status_code == 500 and res.json()["error"]["code"] == "SOURCE_MISSING"
@@ -183,7 +192,8 @@ def test_detail_reads_stored_chapters_and_never_overwrites_them(
     client: TestClient, store: Store
 ) -> None:
     bid = str(upload(client)["id"])
-    store.set_chapters(bid, ["X", "Y", "Z"])
+    _drop_chapters(store, bid)
+    store.backfill_chapters(bid, ["X", "Y", "Z"])
     detail = client.get(f"/api/v1/books/{bid}").json()
     assert [(c["number"], c["title"]) for c in detail["chapters"]] == [
         (1, "X"),
@@ -195,7 +205,7 @@ def test_detail_reads_stored_chapters_and_never_overwrites_them(
 
 def test_detail_backfills_old_book_once(client: TestClient, store: Store) -> None:
     bid = str(upload(client)["id"])
-    store.set_chapters(bid, [])  # shape of a book uploaded before S3
+    _drop_chapters(store, bid)  # shape of a book uploaded before S3
     detail = client.get(f"/api/v1/books/{bid}").json()
     assert [c["title"] for c in detail["chapters"]] == ["My Book", "Part Two"]
     assert [r.title for r in store.get_chapters(bid)] == ["My Book", "Part Two"]
